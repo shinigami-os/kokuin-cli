@@ -2,7 +2,8 @@
 //!
 //! OpenRC keeps no start times, but it marks a service as started by creating a
 //! symbolic link in `/run/openrc/started/`: the modification time of that link is
-//! when the service finished starting.
+//! when the service finished starting. For the daemons it started, it notes the
+//! pidfile in `/run/openrc/daemons/<service>/`, which links a service to its process.
 
 use std::collections::BTreeMap;
 
@@ -13,6 +14,7 @@ use crate::{Context, Observation, Source, SourceOutput, report};
 const EXPLAIN: &str = "init.openrc";
 const STARTED: &str = "/run/openrc/started";
 const FAILED: &str = "/run/openrc/failed";
+const DAEMONS: &str = "/run/openrc/daemons";
 
 /// OpenRC's view of the services.
 pub struct OpenRc;
@@ -105,6 +107,9 @@ fn service_observation(
         .explained_by(EXPLAIN)
         .with("service", name)
         .with("state", state);
+    if state == "started" {
+        observation.pid = daemon_pid(ctx, name);
+    }
     if let Some(runlevel) = runlevel {
         observation = observation.with("runlevel", runlevel);
         observation.stage = match runlevel {
@@ -114,6 +119,17 @@ fn service_observation(
         };
     }
     observation
+}
+
+/// PID of the daemon a service started, read from the pidfile OpenRC noted in
+/// `/run/openrc/daemons/<service>/<n>` (a `pidfile=/run/sshd.pid` line).
+fn daemon_pid(ctx: &Context, service: &str) -> Option<u32> {
+    let dir = format!("{DAEMONS}/{service}");
+    ctx.list_dir(&dir).ok()?.iter().find_map(|entry| {
+        let daemon = ctx.read_text(format!("{dir}/{entry}")).ok()?;
+        let pidfile = daemon.lines().find_map(|l| l.strip_prefix("pidfile="))?;
+        ctx.read_text(pidfile).ok()?.trim().parse().ok()
+    })
 }
 
 /// The first service of the `default` runlevel marks the start of the services stage.

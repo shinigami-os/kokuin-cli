@@ -1,0 +1,61 @@
+Name:	sway
+Umask:	0002
+State:	S (sleeping)
+Tgid:	1447
+Ngid:	0
+Pid:	1447
+PPid:	1169
+TracerPid:	0
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+FDSize:	64
+Groups:	44 990 994 1000 
+NStgid:	1447
+NSpid:	1447
+NSpgid:	1169
+NSsid:	1169
+Kthread:	0
+VmPeak:	  164876 kB
+VmSize:	  109708 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	   20972 kB
+VmRSS:	   20972 kB
+RssAnon:	    3680 kB
+RssFile:	   17060 kB
+RssShmem:	     232 kB
+VmData:	   11436 kB
+VmStk:	     132 kB
+VmExe:	     404 kB
+VmLib:	   14232 kB
+VmPTE:	     116 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	2
+SigQ:	0/11340
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000004002
+SigIgn:	0000000000011000
+SigCgt:	0000000100000000
+CapInh:	0000000800000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	3
+Cpus_allowed_list:	0-1
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	1054
+nonvoluntary_ctxt_switches:	253
+x86_Thread_features:	
+x86_Thread_features_locked:	

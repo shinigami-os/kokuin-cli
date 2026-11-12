@@ -1,0 +1,59 @@
+Name:	ash
+Umask:	0022
+State:	S (sleeping)
+Tgid:	3123
+Ngid:	0
+Pid:	3123
+PPid:	3122
+TracerPid:	0
+Uid:	1001	1001	1001	1001
+Gid:	1001	1001	1001	1001
+FDSize:	64
+Groups:	23 27 105 1001 
+NStgid:	3123
+NSpid:	3123
+NSpgid:	3123
+NSsid:	3123
+Kthread:	0
+VmPeak:	    1652 kB
+VmSize:	    1652 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     888 kB
+VmRSS:	     888 kB
+RssAnon:	      60 kB
+RssFile:	     828 kB
+RssShmem:	       0 kB
+VmData:	      40 kB
+VmStk:	     132 kB
+VmExe:	     612 kB
+VmLib:	     364 kB
+VmPTE:	      36 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	1
+SigQ:	0/7829
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000004
+SigCgt:	0000000000010002
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	3
+Cpus_allowed_list:	0-1
+Mems_allowed:	00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	2
+nonvoluntary_ctxt_switches:	0

@@ -1,0 +1,1 @@
+BOOT_IMAGE=/boot/vmlinuz-virt root=UUID=14a0cd62-34cc-441f-9941-393b62b8f8fb ro modules=sd-mod,usb-storage,ext4,ena,gve,mana console=ttyS0,115200n8 console=ttyAMA0,115200n8 console=tty0

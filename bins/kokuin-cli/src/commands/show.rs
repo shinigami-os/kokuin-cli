@@ -245,11 +245,15 @@ fn milestones(record: &BootRecord) {
     println!();
     println!("{}", paint(style::HEADING, "Milestones"));
     for milestone in &record.milestones {
-        let detail = milestone
-            .event
-            .and_then(|id| record.events.iter().find(|e| e.id == id))
-            .map(|e| paint(style::DIM, &e.title))
-            .unwrap_or_default();
+        let detail = match milestone.event {
+            Some(id) => record
+                .events
+                .iter()
+                .find(|e| e.id == id)
+                .map(|e| paint(style::DIM, &e.title))
+                .unwrap_or_default(),
+            None => paint(style::DIM, "estimated: no event marks this moment"),
+        };
         println!(
             "  {:>10}{} {:<26} {detail}",
             time(milestone.t_ns),

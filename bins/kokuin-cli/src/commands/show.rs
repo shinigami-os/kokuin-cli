@@ -1,7 +1,5 @@
 //! `show`: a summary of one boot.
 
-use std::path::PathBuf;
-
 use anstream::println;
 use kokuin_model::{
     BootRecord, CaptureMethod, EndReason, Event, FirmwareKind, MilestoneKind as M, SourceStatus,
@@ -17,8 +15,8 @@ use crate::{
 const BAR_WIDTH: usize = 40;
 const SLOWEST: usize = 10;
 
-pub fn run(path: Option<PathBuf>, json: bool) -> Result<(), Failure> {
-    let record = records::load(path.as_deref())?;
+pub fn run(boot: Option<String>, json: bool) -> Result<(), Failure> {
+    let record = records::load(boot.as_deref())?;
     if json {
         println!("{}", serde_json::to_string_pretty(&record)?);
         return Ok(());

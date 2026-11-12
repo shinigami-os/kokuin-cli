@@ -19,10 +19,11 @@ milestones relate, and the identifiers that have a fixed meaning.
 | Command | Gives |
 |---|---|
 | `kokuin-cli capture [-o FILE] [--raw DIR]` | A record of the current boot, rebuilt from what the system still remembers. `--raw` also saves the data it was built from (see below). |
-| `kokuin-cli show [RECORD] --json` | The same, or a record file (`-` for standard input), or a record rebuilt from a `--raw` folder. |
-| `kokuin-cli timeline [RECORD] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
+| `kokuin-cli list --json` | The recorded boots: `boot_id`, `current` (this boot), `started_at`, `dir`, `method`, `end_reason`, `session_ready_ns`. |
+| `kokuin-cli show [BOOT] --json` | A whole record. `BOOT` is `last`, `-2`, the start of a boot id, a record file (`-` for standard input), or a `--raw` folder (rebuilt). Without it: the current boot's recording if it was recorded, else a record rebuilt from what the system still remembers. |
+| `kokuin-cli timeline [BOOT] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
 | `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
-| `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs. |
+| `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs, and the state of the boot recorder (`recorder`: `installed`, `enabled`, `current_boot`, `boots_recorded`). |
 | `kokuin-cli schema` | The JSON Schema. |
 
 Run them as root to get every source: the TPM log, the kernel log and some firmware
@@ -71,10 +72,15 @@ sources read it, so a raw snapshot of that boot includes it:
 The details are `comm`, `cmdline`, `exe`, `uid` and `cgroup`, all optional: a
 process can exit before the recorder reads them. Times are on the boot clock.
 
-Planned: records saved for each boot by the boot recorder, in
-`/var/lib/kokuin/boots/<boot_id>/record.json` next to a `raw/` directory with the
-original data, and listed by `kokuin-cli list`. Consumers should go through
-`kokuin-cli` rather than read that directory, which may change.
+### Recorded boots
+
+Once `sudo kokuin-cli enable` was run, each boot is recorded while it happens (see
+`kokuin-cli explain init.kokuin`) and saved in
+`/var/lib/kokuin/boots/<boot_id>/`: `record.json`, next to the `raw/` snapshot it
+was built from. If `/var` could not be written, it is in `/run/kokuin/boots/` until
+the next reboot. Consumers should go through `kokuin-cli list` and
+`kokuin-cli show <boot> --json` rather than read these directories, which may
+change.
 
 ## Versioning
 

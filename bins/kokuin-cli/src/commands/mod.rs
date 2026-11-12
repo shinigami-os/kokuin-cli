@@ -3,6 +3,7 @@
 pub mod capture;
 pub mod enable;
 pub mod explain;
+pub mod list;
 pub mod record;
 pub mod schema;
 pub mod show;

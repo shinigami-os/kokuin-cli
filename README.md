@@ -24,6 +24,16 @@ sudo kokuin-cli capture -o boot.json   # save the record as JSON; `kokuin-cli sh
 sudo kokuin-cli capture --raw boot/    # also save the raw data; `kokuin-cli show boot/` rebuilds the record
 ```
 
+To see everything, including the processes that already exited, record the boots
+while they happen:
+
+```sh
+sudo kokuin-cli enable      # adds kokuin-init to the kernel command line (GRUB), then reboot
+kokuin-cli list             # the recorded boots
+kokuin-cli show last        # the last one (also `-2`, or the start of a boot id)
+sudo kokuin-cli disable     # stop recording
+```
+
 Without root, kokuin still works but sees less: the kernel log, the TPM log and some
 firmware data are readable by root only.
 
@@ -41,7 +51,10 @@ JSON Schema in [schema/](schema/boot-record.schema.json) and an
 | `crates/kokuin-sources` | Readers of each data source (FPDT, TPM log, EFI variables, kernel log, /proc, init systems) |
 | `crates/kokuin-kb` | Loads the knowledge base and its recognition rules |
 | `crates/kokuin-analyze` | Merges the sources into a boot record: timeline, stages, milestones |
+| `crates/kokuin-recorder` | The boot recorder: process events, kernel log, when to stop |
+| `crates/kokuin-bootcfg` | Adds and removes kokuin-init in the bootloader configuration |
 | `bins/kokuin-cli` | The command-line tool |
+| `bins/kokuin-init` | The tiny first program of a recorded boot, which starts the recorder, then the real init |
 | `kb/articles/` | Explanations, one Markdown file per topic (`firmware/fpdt.md` is `firmware.fpdt`) |
 | `kb/rules/` | Rules recognizing kernel log messages and programs |
 | `schema/` | Generated JSON Schema (do not edit by hand) |

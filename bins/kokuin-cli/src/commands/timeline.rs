@@ -1,7 +1,5 @@
 //! `timeline`: everything that happened during a boot, in order.
 
-use std::path::PathBuf;
-
 use anstream::println;
 use kokuin_model::{Event, EventKind, Stage};
 use regex::Regex;
@@ -40,13 +38,8 @@ impl Filter {
     }
 }
 
-pub fn run(
-    path: Option<PathBuf>,
-    filter: Filter,
-    details: bool,
-    json: bool,
-) -> Result<(), Failure> {
-    let record = records::load(path.as_deref())?;
+pub fn run(boot: Option<String>, filter: Filter, details: bool, json: bool) -> Result<(), Failure> {
+    let record = records::load(boot.as_deref())?;
     let keep = filter.compile()?;
     let events: Vec<&Event> = record.events.iter().filter(|e| keep(e)).collect();
 

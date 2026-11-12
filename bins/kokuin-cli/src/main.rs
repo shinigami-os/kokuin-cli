@@ -45,20 +45,28 @@ enum Command {
         #[arg(long, value_name = "DIR")]
         raw: Option<PathBuf>,
     },
+    /// List the recorded boots.
+    List {
+        /// Print JSON instead of text.
+        #[arg(long)]
+        json: bool,
+    },
     /// Summarize a boot: system, stages, milestones, slowest steps.
     Show {
-        /// Record file to read (JSON, `-` for standard input), or folder saved by
-        /// `capture --raw`. Default: the current boot.
-        record: Option<PathBuf>,
+        /// Boot to read: `last`, `-2`, a boot id (see `list`), a record file (`-`
+        /// for standard input), or a folder saved by `capture --raw`. Default: the
+        /// current boot.
+        boot: Option<String>,
         /// Print the whole record as JSON instead of the summary.
         #[arg(long)]
         json: bool,
     },
     /// List everything that happened during a boot, in order.
     Timeline {
-        /// Record file to read (JSON, `-` for standard input), or folder saved by
-        /// `capture --raw`. Default: the current boot.
-        record: Option<PathBuf>,
+        /// Boot to read: `last`, `-2`, a boot id (see `list`), a record file (`-`
+        /// for standard input), or a folder saved by `capture --raw`. Default: the
+        /// current boot.
+        boot: Option<String>,
         /// Only these stages (repeatable).
         #[arg(long, value_parser = parse_enum::<Stage>)]
         stage: Vec<Stage>,
@@ -152,9 +160,10 @@ fn main() -> ExitCode {
             compact,
             raw,
         } => commands::capture::run(output, compact, raw),
-        Command::Show { record, json } => commands::show::run(record, json),
+        Command::List { json } => commands::list::run(json),
+        Command::Show { boot, json } => commands::show::run(boot, json),
         Command::Timeline {
-            record,
+            boot,
             stage,
             source,
             kind,
@@ -168,7 +177,7 @@ fn main() -> ExitCode {
                 kinds: kind,
                 grep,
             };
-            commands::timeline::run(record, filter, details, json)
+            commands::timeline::run(boot, filter, details, json)
         }
         Command::Explain { id, json } => commands::explain::run(id, json),
         Command::Enable { dry_run } => commands::enable::enable(dry_run),

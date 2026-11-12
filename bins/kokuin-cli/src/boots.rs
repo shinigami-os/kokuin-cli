@@ -12,7 +12,7 @@ use std::{
 
 use kokuin_model::BootRecord;
 
-use crate::Failure;
+use crate::{Failure, records};
 
 /// Where recorded boots are kept.
 pub const DIR: &str = "/var/lib/kokuin/boots";
@@ -77,15 +77,56 @@ pub fn list() -> Vec<StoredBoot> {
 
 /// Reads the record of a boot directory.
 pub fn load(dir: &Path) -> Result<StoredBoot, Failure> {
-    let path = dir.join(RECORD_FILE);
-    let text = fs::read_to_string(&path)
-        .map_err(|err| Failure(format!("cannot read {}: {err}", path.display())))?;
-    let record = serde_json::from_str(&text)
-        .map_err(|err| Failure(format!("{} is not a boot record: {err}", path.display())))?;
     Ok(StoredBoot {
         dir: dir.to_owned(),
-        record,
+        record: records::read_file(&dir.join(RECORD_FILE))?,
     })
+}
+
+/// Finds a recorded boot: `last` (or `-1`), `-2` for the one before, and so on, or
+/// the start of a boot id.
+pub fn find(selector: &str) -> Result<StoredBoot, Failure> {
+    let mut boots = list();
+    let from_end = match selector {
+        "last" => Some(1),
+        _ => selector
+            .strip_prefix('-')
+            .and_then(|n| n.parse::<usize>().ok()),
+    };
+    if let Some(n) = from_end {
+        let count = boots.len();
+        return count
+            .checked_sub(n)
+            .filter(|_| n > 0)
+            .map(|index| boots.swap_remove(index))
+            .ok_or_else(|| match count {
+                0 => Failure("no boot recorded yet: see `kokuin-cli enable`".into()),
+                _ => Failure(format!(
+                    "only {count} boot(s) recorded: see `kokuin-cli list`"
+                )),
+            });
+    }
+    let mut matching: Vec<StoredBoot> = boots
+        .into_iter()
+        .filter(|b| b.record.boot.boot_id.starts_with(selector))
+        .collect();
+    match matching.len() {
+        1 => Ok(matching.remove(0)),
+        0 => Err(Failure(format!(
+            "`{selector}` is not a file, a folder or a recorded boot: see `kokuin-cli list`"
+        ))),
+        n => Err(Failure(format!(
+            "{n} recorded boots start with `{selector}`: give more of the id"
+        ))),
+    }
+}
+
+/// The recording of the current boot, if there is one.
+pub fn current() -> Option<StoredBoot> {
+    let boot_id = current_boot_id().ok()?;
+    [DIR, FALLBACK_DIR]
+        .iter()
+        .find_map(|base| load(&Path::new(base).join(&boot_id)).ok())
 }
 
 /// Deletes the oldest recorded boots, keeping `keep`.

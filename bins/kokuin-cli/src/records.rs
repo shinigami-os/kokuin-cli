@@ -8,7 +8,7 @@ use kokuin_model::{
 };
 use kokuin_sources::{Context, format_wall_clock, proc_events};
 
-use crate::Failure;
+use crate::{Failure, boots};
 
 /// Builds a record of the boot `ctx` describes: from what the boot recorder saw if it
 /// ran, else from what the system still remembers.
@@ -40,39 +40,54 @@ fn recording_end(record: &BootRecord) -> Option<EndReason> {
     proc_events::end_reason(event)
 }
 
-/// Reads a record file (`-` for the standard input), rebuilds the record of a
-/// snapshot directory, or captures the current boot when no path is given.
-pub fn load(path: Option<&Path>) -> Result<BootRecord, Failure> {
-    let ctx = match path {
-        None => Context::live(),
-        Some(dir) if dir.is_dir() => Context::from_snapshot(dir)?,
-        Some(file) => return read_file(file),
+/// The record a command works on. `boot` is, in order:
+///
+/// - `-`: a record on the standard input;
+/// - a file: a record;
+/// - a folder: a recorded boot's folder, or a snapshot saved by `capture --raw`
+///   (the record is rebuilt from it);
+/// - otherwise a recorded boot: `last`, `-2`, or the start of its id.
+///
+/// Without `boot`: the current boot's recording if it was recorded, else a record
+/// rebuilt now from what the system still remembers.
+pub fn load(boot: Option<&str>) -> Result<BootRecord, Failure> {
+    let ctx = match boot {
+        None => match boots::current() {
+            Some(recorded) => return Ok(recorded.record),
+            None => Context::live(),
+        },
+        Some("-") => {
+            let mut text = String::new();
+            std::io::stdin().read_to_string(&mut text)?;
+            return parse(&text, "the standard input");
+        }
+        Some(path) if Path::new(path).is_file() => return read_file(Path::new(path)),
+        Some(path) if Path::new(path).join(boots::RECORD_FILE).is_file() => {
+            return boots::load(Path::new(path)).map(|b| b.record);
+        }
+        Some(path) if Path::new(path).is_dir() => Context::from_snapshot(path)?,
+        Some(selector) => return boots::find(selector).map(|b| b.record),
     };
     let record = build(&ctx);
     warn_about_missing_sources(&record);
     Ok(record)
 }
 
-fn read_file(path: &Path) -> Result<BootRecord, Failure> {
-    let text = if path == Path::new("-") {
-        let mut text = String::new();
-        std::io::stdin().read_to_string(&mut text)?;
-        text
-    } else {
-        std::fs::read_to_string(path)
-            .map_err(|err| Failure(format!("cannot read {}: {err}", path.display())))?
-    };
-    let record: BootRecord = serde_json::from_str(&text).map_err(|err| {
-        Failure(format!(
-            "{} is not a kokuin boot record: {err}",
-            path.display()
-        ))
-    })?;
+/// Reads a record file.
+pub fn read_file(path: &Path) -> Result<BootRecord, Failure> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|err| Failure(format!("cannot read {}: {err}", path.display())))?;
+    parse(&text, &path.display().to_string())
+}
+
+/// Parses a record, refusing a format version this kokuin-cli does not read.
+fn parse(text: &str, origin: &str) -> Result<BootRecord, Failure> {
+    let record: BootRecord = serde_json::from_str(text)
+        .map_err(|err| Failure(format!("{origin} is not a kokuin boot record: {err}")))?;
     let major = |version: &str| version.split('.').next().map(str::to_owned);
     if major(&record.schema_version) != major(kokuin_model::SCHEMA_VERSION) {
         return Err(Failure(format!(
-            "{} uses format version {}, this kokuin-cli reads version {}",
-            path.display(),
+            "{origin} uses format version {}, this kokuin-cli reads version {}",
             record.schema_version,
             kokuin_model::SCHEMA_VERSION
         )));

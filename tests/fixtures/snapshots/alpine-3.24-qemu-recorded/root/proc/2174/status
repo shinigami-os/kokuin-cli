@@ -1,0 +1,59 @@
+Name:	sway
+Umask:	0022
+State:	S (sleeping)
+Tgid:	2174
+Ngid:	0
+Pid:	2174
+PPid:	2162
+TracerPid:	0
+Uid:	1001	1001	1001	1001
+Gid:	1001	1001	1001	1001
+FDSize:	64
+Groups:	23 27 105 1001 
+NStgid:	2174
+NSpid:	2174
+NSpgid:	2162
+NSsid:	2162
+Kthread:	0
+VmPeak:	  270236 kB
+VmSize:	  270236 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	   56268 kB
+VmRSS:	   56268 kB
+RssAnon:	    7536 kB
+RssFile:	   48500 kB
+RssShmem:	     232 kB
+VmData:	    7740 kB
+VmStk:	     132 kB
+VmExe:	     264 kB
+VmLib:	  145836 kB
+VmPTE:	     388 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	2
+SigQ:	0/7829
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000004002
+SigIgn:	0000000000011000
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000000000800000
+CapEff:	0000000000800000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	3
+Cpus_allowed_list:	0-1
+Mems_allowed:	00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	368
+nonvoluntary_ctxt_switches:	30

@@ -1,0 +1,7 @@
+exec=/usr/sbin/chronyd
+argv_0=/usr/sbin/chronyd
+argv_1=-f
+argv_2=/etc/chrony/chrony.conf
+argv_3=-F
+argv_4=1
+pidfile=/run/chrony/chronyd.pid

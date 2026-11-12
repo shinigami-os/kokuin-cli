@@ -1,0 +1,4 @@
+exec=/sbin/acpid
+argv_0=/sbin/acpid
+argv_1=-f
+pidfile=/run/acpid.pid

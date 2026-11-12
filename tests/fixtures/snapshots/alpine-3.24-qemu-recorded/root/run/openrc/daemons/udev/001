@@ -1,0 +1,3 @@
+exec=/sbin/udevd
+argv_0=/sbin/udevd
+pidfile=/run/udev.pid

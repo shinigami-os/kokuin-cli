@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 use kokuin_kb::Kb;
 use kokuin_model::{
-    BootRecord, CaptureInfo, CaptureMethod, Event, MilestoneKind as M, SourceStatus,
+    BootRecord, CaptureInfo, CaptureMethod, Confidence, EndReason, Event, MilestoneKind as M,
+    SourceStatus,
 };
 use kokuin_sources::Context;
 
@@ -63,6 +64,41 @@ fn milestone_program(record: &BootRecord, kind: M) -> Option<&str> {
     Some(&process.comm)
 }
 
+fn milestone_time(record: &BootRecord, kind: M) -> Option<i64> {
+    Some(record.milestones.iter().find(|m| m.kind == kind)?.t_ns)
+}
+
+/// What a recorded boot has that a capture after the fact does not.
+fn assert_recorded(record: &BootRecord) {
+    assert_eq!(status(record, "proc_events"), SourceStatus::Ok);
+    assert_eq!(status(record, "procfs"), SourceStatus::Ok);
+    let end = milestone_event(record, M::RecordingEnd).expect("the recording end");
+    assert_eq!(
+        kokuin_sources::proc_events::end_reason(end),
+        Some(EndReason::SessionReady)
+    );
+    let exited = record
+        .processes
+        .iter()
+        .filter(|p| p.end_ns.is_some())
+        .count();
+    assert!(exited > 500, "{exited} processes that exited");
+    // Kernel messages were moved onto the boot clock, keeping their own time.
+    let moved = record
+        .events
+        .iter()
+        .filter(|e| e.source == "kmsg")
+        .all(|e| e.data.contains_key("kmsg_ns"));
+    assert!(moved);
+    // Desktop ready comes from the recorded process start: an exact time.
+    let ready = record
+        .milestones
+        .iter()
+        .find(|m| m.kind == M::SessionReady)
+        .unwrap();
+    assert_eq!(ready.confidence, Confidence::Exact);
+}
+
 fn has_title(record: &BootRecord, start: &str) -> bool {
     record.events.iter().any(|e| e.title.starts_with(start))
 }
@@ -110,6 +146,17 @@ fn every_snapshot_gives_a_consistent_record() {
             record.milestones.iter().any(|m| m.kind == M::SessionReady),
             "{name}: the desktop was ready"
         );
+        // Init runs from the root filesystem: the clocks of the kernel log and of the
+        // processes must agree on that.
+        if let (Some(root), Some(init)) = (
+            milestone_time(&record, M::RootMounted),
+            milestone_time(&record, M::InitStart),
+        ) {
+            assert!(
+                root <= init,
+                "{name}: root mounted at {root}, init at {init}"
+            );
+        }
         let json = serde_json::to_string(&record).unwrap();
         let back: BootRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(back, record, "{name}: the record survives JSON");
@@ -208,6 +255,30 @@ fn ubuntu_secure_boot_with_shim() {
     ] {
         assert!(milestone_event(&record, kind).is_some(), "{kind:?}");
     }
+    assert_eq!(
+        milestone_program(&record, M::DisplayManagerStart),
+        Some("greetd")
+    );
+}
+
+/// The Alpine VM, recorded by kokuin-init and the recorder.
+#[test]
+fn alpine_recorded_boot() {
+    let record = snapshot("alpine-3.24-qemu-recorded");
+    assert_recorded(&record);
+    // OpenRC keeps no time of its start: the handover by kokuin-init tells it.
+    let init = milestone_event(&record, M::InitStart).unwrap();
+    assert!(init.title.starts_with("kokuin-init started the recorder"));
+}
+
+/// The Ubuntu VM, recorded by kokuin-init and the recorder.
+#[test]
+fn ubuntu_recorded_boot() {
+    let record = snapshot("ubuntu-26.04-qemu-recorded");
+    assert_recorded(&record);
+    // systemd's own exact time wins over the handover.
+    let init = milestone_event(&record, M::InitStart).unwrap();
+    assert_eq!(init.source, "systemd");
     assert_eq!(
         milestone_program(&record, M::DisplayManagerStart),
         Some("greetd")

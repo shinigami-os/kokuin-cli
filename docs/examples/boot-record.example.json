@@ -1,0 +1,223 @@
+{
+  "schema_version": "0.1",
+  "boot": {
+    "boot_id": "6f1c2d4e-8a3b-4c5d-9e7f-0a1b2c3d4e5f",
+    "started_at": "2026-11-12T08:44:58.120+01:00",
+    "hostname": "kira",
+    "kernel": {
+      "release": "6.17.7-shinigami",
+      "version": "#1 SMP PREEMPT_DYNAMIC",
+      "cmdline": "root=UUID=3b9e1f0a-5c2d-4e8f-a1b7-6d4c2e9f8a10 ro quiet init=/usr/lib/kokuin/kokuin-init"
+    },
+    "os": {
+      "id": "kira",
+      "name": "Kira Linux",
+      "pretty_name": "Kira Linux"
+    },
+    "machine": {
+      "arch": "x86_64",
+      "firmware": "uefi",
+      "uefi": {
+        "vendor": "EDK II",
+        "spec_version": "2.70",
+        "platform_bits": 64,
+        "secure_boot": false
+      },
+      "dmi": {
+        "sys_vendor": "QEMU",
+        "product_name": "Standard PC (Q35 + ICH9, 2009)",
+        "bios_vendor": "EDK II",
+        "bios_version": "2025.02",
+        "bios_date": "02/21/2025"
+      }
+    },
+    "bootloader": {
+      "id": "grub",
+      "name": "GNU GRUB",
+      "version": "2.12",
+      "explain_id": "bootloader.grub"
+    },
+    "init": {
+      "id": "runit",
+      "name": "runit",
+      "version": "2.2.0",
+      "explain_id": "init.runit"
+    }
+  },
+  "capture": {
+    "tool": "kokuin-cli",
+    "tool_version": "0.1.0",
+    "method": "recorder",
+    "captured_at": "2026-11-12T08:45:16.020+01:00",
+    "end_reason": "session_ready"
+  },
+  "sources": [
+    { "id": "fpdt", "status": "ok", "raw_files": ["raw/fpdt.json"], "explain_id": "firmware.fpdt" },
+    { "id": "tpm_eventlog", "status": "ok", "raw_files": ["raw/tpm_eventlog.bin"], "explain_id": "firmware.tpm_eventlog" },
+    { "id": "efivars", "status": "ok", "explain_id": "firmware.efivars" },
+    { "id": "dmi", "status": "ok", "explain_id": "firmware.dmi" },
+    { "id": "kmsg", "status": "ok", "raw_files": ["raw/kmsg.txt"], "explain_id": "kernel.kmsg" },
+    { "id": "proc_events", "status": "ok", "explain_id": "init.proc_events" },
+    {
+      "id": "runit",
+      "status": "partial",
+      "reason": "runit records when a service process starts, not when the service is ready",
+      "explain_id": "init.runit"
+    }
+  ],
+  "stages": [
+    { "stage": "firmware", "start_ns": -7070000000, "end_ns": -2320000000, "confidence": "approximate", "explain_id": "stage.firmware" },
+    { "stage": "bootloader", "start_ns": -2320000000, "end_ns": 0, "confidence": "approximate", "explain_id": "stage.bootloader" },
+    { "stage": "kernel", "start_ns": 0, "end_ns": 1420000000, "confidence": "exact", "explain_id": "stage.kernel" },
+    { "stage": "init", "start_ns": 1420000000, "end_ns": 2950000000, "confidence": "exact", "explain_id": "stage.init" },
+    { "stage": "services", "start_ns": 2950000000, "confidence": "exact", "explain_id": "stage.services" },
+    { "stage": "graphical", "start_ns": 3100000000, "end_ns": 5750000000, "confidence": "exact", "explain_id": "stage.graphical" },
+    { "stage": "session", "start_ns": 5750000000, "end_ns": 7900000000, "confidence": "approximate", "explain_id": "stage.session" },
+    { "stage": "runtime", "start_ns": 7900000000, "confidence": "approximate", "explain_id": "stage.runtime" }
+  ],
+  "milestones": [
+    { "kind": "firmware_start", "t_ns": -7070000000, "confidence": "approximate", "event": 1, "explain_id": "firmware.reset" },
+    { "kind": "bootloader_load", "t_ns": -2320000000, "confidence": "approximate", "event": 4 },
+    { "kind": "bootloader_start", "t_ns": -2270000000, "confidence": "approximate", "event": 6 },
+    { "kind": "exit_boot_services", "t_ns": 0, "confidence": "approximate", "event": 9, "explain_id": "firmware.exit_boot_services" },
+    { "kind": "kernel_start", "t_ns": 0, "confidence": "exact", "event": 10 },
+    { "kind": "graphics_ready", "t_ns": 1180000000, "confidence": "exact", "event": 11, "explain_id": "graphics.drm" },
+    { "kind": "root_mounted", "t_ns": 1390000000, "confidence": "exact", "event": 12 },
+    { "kind": "init_start", "t_ns": 1423000000, "confidence": "exact", "event": 14, "explain_id": "init.pid1" },
+    { "kind": "services_start", "t_ns": 2950000000, "confidence": "exact", "event": 16 },
+    { "kind": "display_manager_start", "t_ns": 3100000000, "confidence": "exact", "event": 17 },
+    { "kind": "session_start", "t_ns": 5750000000, "confidence": "approximate" },
+    { "kind": "compositor_start", "t_ns": 5800000000, "confidence": "exact", "event": 18 },
+    { "kind": "session_ready", "t_ns": 7900000000, "confidence": "approximate", "explain_id": "session.ready" },
+    { "kind": "recording_end", "t_ns": 17900000000, "confidence": "exact" }
+  ],
+  "processes": [
+    {
+      "id": 1, "pid": 1, "comm": "runit", "cmdline": ["runit"], "exe": "/sbin/runit",
+      "start_ns": 1420000000, "stage": "init", "confidence": "exact", "explain_id": "init.runit"
+    },
+    {
+      "id": 2, "pid": 312, "parent": 1, "ppid": 1, "comm": "1", "cmdline": ["/etc/runit/1"], "exe": "/bin/busybox",
+      "start_ns": 1430000000, "end_ns": 2940000000, "exit_code": 0, "stage": "init", "confidence": "exact",
+      "explain_id": "init.runit_stage1"
+    },
+    {
+      "id": 3, "pid": 340, "parent": 2, "ppid": 312, "comm": "udevd", "cmdline": ["udevd", "--daemon"], "exe": "/sbin/udevd",
+      "start_ns": 1510000000, "end_ns": 1512000000, "exit_code": 0, "stage": "init", "confidence": "exact",
+      "explain_id": "init.udev"
+    },
+    {
+      "id": 4, "pid": 401, "parent": 1, "ppid": 1, "comm": "runsvdir", "cmdline": ["runsvdir", "-P", "/var/service"],
+      "exe": "/sbin/runsvdir", "start_ns": 2950000000, "stage": "services", "confidence": "exact",
+      "explain_id": "init.runit_stage2"
+    },
+    {
+      "id": 5, "pid": 455, "ppid": 452, "comm": "greetd", "cmdline": ["greetd"], "exe": "/usr/bin/greetd",
+      "start_ns": 3100000000, "service": "greetd", "stage": "graphical", "confidence": "exact",
+      "explain_id": "graphics.greetd"
+    },
+    {
+      "id": 6, "pid": 612, "parent": 5, "ppid": 455, "comm": "sway", "cmdline": ["sway"], "exe": "/usr/bin/sway",
+      "start_ns": 5800000000, "stage": "session", "confidence": "exact", "explain_id": "session.compositor"
+    }
+  ],
+  "events": [
+    {
+      "id": 1, "t_ns": -7070000000, "confidence": "approximate", "stage": "firmware", "source": "fpdt",
+      "kind": "firmware_timing", "title": "Firmware started (CPU left reset)", "explain_id": "firmware.reset",
+      "data": { "field": "reset_end_ns", "firmware_ns": 350000000 }
+    },
+    {
+      "id": 2, "confidence": "inferred", "stage": "firmware", "source": "tpm_eventlog",
+      "kind": "measurement", "title": "Firmware measured the Secure Boot state", "explain_id": "firmware.secure_boot",
+      "data": { "pcr": 7, "event_type": "EV_EFI_VARIABLE_DRIVER_CONFIG", "variable": "SecureBoot" }
+    },
+    {
+      "id": 3, "confidence": "inferred", "stage": "firmware", "source": "efivars",
+      "kind": "variable", "title": "Boot entry Boot0001 (Kira Linux) was selected", "explain_id": "firmware.boot_entries",
+      "data": { "variable": "BootCurrent", "value": "0001", "description": "Kira Linux", "path": "\\EFI\\kira\\grubx64.efi" }
+    },
+    {
+      "id": 4, "t_ns": -2320000000, "confidence": "approximate", "stage": "bootloader", "source": "fpdt",
+      "kind": "firmware_timing", "title": "Firmware started loading the bootloader", "explain_id": "firmware.fpdt",
+      "data": { "field": "load_start_ns", "firmware_ns": 5100000000 }
+    },
+    {
+      "id": 5, "confidence": "inferred", "stage": "bootloader", "source": "tpm_eventlog",
+      "kind": "measurement", "title": "Firmware measured the bootloader \\EFI\\kira\\grubx64.efi",
+      "explain_id": "firmware.measured_boot",
+      "data": { "pcr": 4, "event_type": "EV_EFI_BOOT_SERVICES_APPLICATION", "path": "\\EFI\\kira\\grubx64.efi" }
+    },
+    {
+      "id": 6, "t_ns": -2270000000, "confidence": "approximate", "stage": "bootloader", "source": "fpdt",
+      "kind": "firmware_timing", "title": "Firmware started the bootloader", "explain_id": "firmware.fpdt",
+      "data": { "field": "startup_start_ns", "firmware_ns": 5150000000 }
+    },
+    {
+      "id": 7, "confidence": "inferred", "stage": "bootloader", "source": "tpm_eventlog",
+      "kind": "measurement", "title": "GRUB ran: linux /vmlinuz-6.17.7-shinigami root=UUID=3b9e… ro quiet",
+      "message": "grub_cmd: linux /vmlinuz-6.17.7-shinigami root=UUID=3b9e1f0a-5c2d-4e8f-a1b7-6d4c2e9f8a10 ro quiet init=/usr/lib/kokuin/kokuin-init",
+      "explain_id": "bootloader.grub_commands",
+      "data": { "pcr": 8, "event_type": "EV_IPL" }
+    },
+    {
+      "id": 8, "confidence": "inferred", "stage": "bootloader", "source": "tpm_eventlog",
+      "kind": "measurement", "title": "GRUB loaded the kernel /vmlinuz-6.17.7-shinigami", "explain_id": "bootloader.grub",
+      "data": { "pcr": 9, "event_type": "EV_IPL", "path": "/vmlinuz-6.17.7-shinigami" }
+    },
+    {
+      "id": 9, "t_ns": 0, "confidence": "approximate", "stage": "bootloader", "source": "fpdt",
+      "kind": "firmware_timing", "title": "Firmware handed the machine over to the OS (ExitBootServices)",
+      "explain_id": "firmware.exit_boot_services",
+      "data": { "field": "exitbootservice_end_ns", "firmware_ns": 7420000000 }
+    },
+    {
+      "id": 10, "t_ns": 0, "confidence": "exact", "stage": "kernel", "source": "kmsg", "kind": "log",
+      "title": "Linux 6.17.7-shinigami started",
+      "message": "Linux version 6.17.7-shinigami (clang version 21.1.0) #1 SMP PREEMPT_DYNAMIC",
+      "level": "notice", "explain_id": "kernel.start", "data": { "seq": 0, "facility": "kern" }
+    },
+    {
+      "id": 11, "t_ns": 1180000000, "confidence": "exact", "stage": "kernel", "source": "kmsg", "kind": "device",
+      "title": "Graphics driver virtio_gpu is ready", "message": "[drm] Initialized virtio_gpu 0.1.0 for virtio0 on minor 0",
+      "level": "info", "explain_id": "graphics.drm", "data": { "seq": 512, "facility": "kern", "driver": "virtio_gpu" }
+    },
+    {
+      "id": 12, "t_ns": 1390000000, "confidence": "exact", "stage": "kernel", "source": "kmsg", "kind": "mount",
+      "title": "Root filesystem mounted read-only (ext4 on vda2)",
+      "message": "EXT4-fs (vda2): mounted filesystem 3b9e1f0a-5c2d-4e8f-a1b7-6d4c2e9f8a10 ro with ordered data mode. Quota mode: none.",
+      "level": "info", "explain_id": "kernel.root_mount",
+      "data": { "seq": 590, "facility": "kern", "device": "vda2", "fstype": "ext4", "read_only": true }
+    },
+    {
+      "id": 13, "t_ns": 1420000000, "confidence": "exact", "stage": "kernel", "source": "kmsg", "kind": "log",
+      "title": "Kernel started the first process", "message": "Run /usr/lib/kokuin/kokuin-init as init process",
+      "level": "info", "explain_id": "kernel.run_init", "data": { "seq": 601, "facility": "kern" }
+    },
+    {
+      "id": 14, "t_ns": 1423000000, "confidence": "exact", "stage": "init", "source": "proc_events",
+      "kind": "process_start", "title": "runit started as PID 1", "process": 1, "explain_id": "init.pid1",
+      "data": { "pid": 1, "exe": "/sbin/runit" }
+    },
+    {
+      "id": 15, "t_ns": 1430000000, "confidence": "exact", "stage": "init", "source": "proc_events",
+      "kind": "process_start", "title": "runit stage 1 started (/etc/runit/1)", "process": 2,
+      "explain_id": "init.runit_stage1", "data": { "pid": 312, "exe": "/bin/busybox" }
+    },
+    {
+      "id": 16, "t_ns": 2950000000, "confidence": "exact", "stage": "services", "source": "proc_events",
+      "kind": "process_start", "title": "runit stage 2 started: runsvdir supervises the services", "process": 4,
+      "explain_id": "init.runit_stage2", "data": { "pid": 401, "exe": "/sbin/runsvdir" }
+    },
+    {
+      "id": 17, "t_ns": 3100000000, "confidence": "exact", "stage": "graphical", "source": "runit",
+      "kind": "service", "title": "Service greetd started (login manager)", "process": 5, "explain_id": "graphics.greetd",
+      "data": { "service": "greetd", "state": "run" }
+    },
+    {
+      "id": 18, "t_ns": 5800000000, "confidence": "exact", "stage": "session", "source": "proc_events",
+      "kind": "process_start", "title": "Compositor sway started", "process": 6, "explain_id": "session.compositor",
+      "data": { "pid": 612, "exe": "/usr/bin/sway" }
+    }
+  ]
+}

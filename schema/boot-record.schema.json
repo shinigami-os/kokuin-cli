@@ -1,0 +1,1125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BootRecord",
+  "description": "Everything kokuin knows about one boot. This is the root of the JSON format.",
+  "type": "object",
+  "properties": {
+    "boot": {
+      "description": "Which boot this is, and on what system.",
+      "$ref": "#/$defs/BootInfo"
+    },
+    "capture": {
+      "description": "How this record was made.",
+      "$ref": "#/$defs/CaptureInfo"
+    },
+    "events": {
+      "description": "Everything that happened, in the best-known chronological order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Event"
+      }
+    },
+    "milestones": {
+      "description": "Key moments of the boot, in chronological order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Milestone"
+      }
+    },
+    "processes": {
+      "description": "Processes that ran during the boot, sorted by start time.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Process"
+      }
+    },
+    "schema_version": {
+      "description": "Version of the format, as `MAJOR.MINOR`. A new minor version only adds optional\nfields and enum values; a new major version may break consumers.",
+      "type": "string"
+    },
+    "sources": {
+      "description": "What happened with each data source: what could be read, and why not.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SourceReport"
+      }
+    },
+    "stages": {
+      "description": "Time span of each boot phase, in boot order. Phases that did not happen are\nabsent.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StageSpan"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "boot",
+    "capture",
+    "sources",
+    "stages",
+    "milestones",
+    "processes",
+    "events"
+  ],
+  "$defs": {
+    "BootInfo": {
+      "description": "Which boot this record describes, and on what system.",
+      "type": "object",
+      "properties": {
+        "boot_id": {
+          "description": "Random identifier the kernel gives to each boot\n(`/proc/sys/kernel/random/boot_id`).",
+          "type": "string"
+        },
+        "bootloader": {
+          "description": "The bootloader that started the kernel, when it could be identified.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostname": {
+          "description": "Host name of the system.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "init": {
+          "description": "The init system (PID 1), when it could be identified.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kernel": {
+          "description": "The kernel that booted.",
+          "$ref": "#/$defs/KernelInfo"
+        },
+        "machine": {
+          "description": "The machine and its firmware.",
+          "$ref": "#/$defs/MachineInfo"
+        },
+        "os": {
+          "description": "The distribution, from `/etc/os-release`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OsInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "description": "Wall-clock time of the kernel start (boot clock `0`), in RFC 3339 format.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "boot_id",
+        "kernel",
+        "machine"
+      ]
+    },
+    "CaptureInfo": {
+      "description": "How a record was made.",
+      "type": "object",
+      "properties": {
+        "captured_at": {
+          "description": "Wall-clock time when the record was written, in RFC 3339 format.",
+          "type": "string"
+        },
+        "end_reason": {
+          "description": "Why the recording stopped.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EndReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "description": "How the data was collected.",
+          "$ref": "#/$defs/CaptureMethod"
+        },
+        "tool": {
+          "description": "Name of the program that made the record (`kokuin-cli`).",
+          "type": "string"
+        },
+        "tool_version": {
+          "description": "Version of that program.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "tool_version",
+        "method",
+        "captured_at"
+      ]
+    },
+    "CaptureMethod": {
+      "description": "How the data of a record was collected.",
+      "oneOf": [
+        {
+          "description": "Reconstructed after the boot from what the system still remembers (logs,\nfirmware tables, running processes). Processes that already exited are missing.",
+          "type": "string",
+          "const": "post_hoc"
+        },
+        {
+          "description": "Recorded live during the boot by `kokuin-init`.",
+          "type": "string",
+          "const": "recorder"
+        },
+        {
+          "description": "Recorded live with the extra kernel tracing of deep mode.",
+          "type": "string",
+          "const": "recorder_deep"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "ComponentInfo": {
+      "description": "A software component of the boot chain (bootloader, init system).",
+      "type": "object",
+      "properties": {
+        "explain_id": {
+          "description": "Identifier of the explanation of this component in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Stable lowercase identifier (for example `grub`, `systemd-boot`, `runit`,\n`systemd`, `openrc`). The known identifiers are listed in `docs/format.md`.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "description": "Version, when known.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "Confidence": {
+      "description": "How much a time (or a time span) can be trusted.",
+      "oneOf": [
+        {
+          "description": "Read from a clock by the component itself (kernel log timestamp, process event,\nfirmware performance record).",
+          "type": "string",
+          "const": "exact"
+        },
+        {
+          "description": "Derived from a clock, with a known imprecision: for example a firmware time\nconverted to the boot clock, or a process start time with a resolution of one\nclock tick.",
+          "type": "string",
+          "const": "approximate"
+        },
+        {
+          "description": "No clock at all: the position was deduced from the order of events (for example\na TPM measurement placed between two timed events).",
+          "type": "string",
+          "const": "inferred"
+        }
+      ]
+    },
+    "DmiInfo": {
+      "description": "Hardware identification from the SMBIOS/DMI tables (`/sys/class/dmi/id`).",
+      "type": "object",
+      "properties": {
+        "bios_date": {
+          "description": "Firmware release date (`bios_date`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bios_vendor": {
+          "description": "Firmware vendor (`bios_vendor`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bios_version": {
+          "description": "Firmware version (`bios_version`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "board_name": {
+          "description": "Motherboard model (`board_name`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "board_vendor": {
+          "description": "Motherboard manufacturer (`board_vendor`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "product_name": {
+          "description": "Machine model (`product_name`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sys_vendor": {
+          "description": "Machine manufacturer (`sys_vendor`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "EndReason": {
+      "description": "Why a recording stopped.",
+      "oneOf": [
+        {
+          "description": "The session became ready and the settle time elapsed.",
+          "type": "string",
+          "const": "session_ready"
+        },
+        {
+          "description": "The maximum recording time elapsed before the session was ready.",
+          "type": "string",
+          "const": "timeout"
+        },
+        {
+          "description": "The user stopped the recording.",
+          "type": "string",
+          "const": "manual"
+        },
+        {
+          "description": "A post-hoc capture: the data is a snapshot taken at `captured_at`.",
+          "type": "string",
+          "const": "snapshot"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "Event": {
+      "description": "One thing that happened during the boot.\n\nIn a record, events are sorted in the best-known chronological order, including\nevents without a time.",
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "description": "How much `t_ns` and `dur_ns` can be trusted.",
+          "$ref": "#/$defs/Confidence"
+        },
+        "data": {
+          "description": "Source-specific details. The keys used by each source are listed in\n`docs/format.md`.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "dur_ns": {
+          "description": "How long it lasted, in ns, for events that have a duration.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "explain_id": {
+          "description": "Identifier of the explanation of this event in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Identifier, unique within the record.",
+          "$ref": "#/$defs/EventId"
+        },
+        "kind": {
+          "description": "What this event describes.",
+          "$ref": "#/$defs/EventKind"
+        },
+        "level": {
+          "description": "Severity, for log messages.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LogLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "description": "The original message, as written by the component, when there is one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "process": {
+          "description": "The process this event is about or comes from.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "description": "Identifier of the data source that produced this event: the `id` of one of the\nrecord `sources`.",
+          "type": "string"
+        },
+        "stage": {
+          "description": "The boot phase this event is attributed to.",
+          "$ref": "#/$defs/Stage"
+        },
+        "t_ns": {
+          "description": "When it happened on the boot clock, in ns. Absent when no clock was available\n(the position in the event list still gives the order).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "title": {
+          "description": "Short human-readable summary.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "confidence",
+        "stage",
+        "source",
+        "kind",
+        "title"
+      ]
+    },
+    "EventId": {
+      "description": "Identifier of an [`Event`], unique within one record.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "EventKind": {
+      "description": "What an [`Event`] describes.",
+      "oneOf": [
+        {
+          "description": "A log message (kernel log, init system log...).",
+          "type": "string",
+          "const": "log"
+        },
+        {
+          "description": "A timestamp reported by the firmware (ACPI FPDT).",
+          "type": "string",
+          "const": "firmware_timing"
+        },
+        {
+          "description": "Something the firmware or bootloader measured into the TPM before running or\nusing it (measured boot).",
+          "type": "string",
+          "const": "measurement"
+        },
+        {
+          "description": "A firmware setting or EFI variable (boot order, Secure Boot state...).",
+          "type": "string",
+          "const": "variable"
+        },
+        {
+          "description": "A kernel initialization function (initcall), with its duration when known.",
+          "type": "string",
+          "const": "initcall"
+        },
+        {
+          "description": "A process started (exec).",
+          "type": "string",
+          "const": "process_start"
+        },
+        {
+          "description": "A process exited.",
+          "type": "string",
+          "const": "process_exit"
+        },
+        {
+          "description": "A service changed state (`data.state` holds the new state).",
+          "type": "string",
+          "const": "service"
+        },
+        {
+          "description": "A filesystem was mounted.",
+          "type": "string",
+          "const": "mount"
+        },
+        {
+          "description": "A device was detected, or a driver bound to it.",
+          "type": "string",
+          "const": "device"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "FirmwareKind": {
+      "description": "Kind of firmware that booted the machine.",
+      "oneOf": [
+        {
+          "description": "UEFI firmware.",
+          "type": "string",
+          "const": "uefi"
+        },
+        {
+          "description": "Legacy PC BIOS (or UEFI in legacy/CSM mode).",
+          "type": "string",
+          "const": "bios"
+        },
+        {
+          "description": "Something else (device tree based boards...), or not detected.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "KernelInfo": {
+      "description": "The kernel that booted.",
+      "type": "object",
+      "properties": {
+        "cmdline": {
+          "description": "Kernel command line (`/proc/cmdline`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release": {
+          "description": "Kernel release (`uname -r`).",
+          "type": "string"
+        },
+        "version": {
+          "description": "Kernel build version string (`uname -v`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "release"
+      ]
+    },
+    "LogLevel": {
+      "description": "Severity of a log message, as defined by syslog.",
+      "oneOf": [
+        {
+          "description": "The system is unusable.",
+          "type": "string",
+          "const": "emerg"
+        },
+        {
+          "description": "Action must be taken immediately.",
+          "type": "string",
+          "const": "alert"
+        },
+        {
+          "description": "Critical condition.",
+          "type": "string",
+          "const": "crit"
+        },
+        {
+          "description": "Error.",
+          "type": "string",
+          "const": "err"
+        },
+        {
+          "description": "Warning.",
+          "type": "string",
+          "const": "warning"
+        },
+        {
+          "description": "Normal but significant condition.",
+          "type": "string",
+          "const": "notice"
+        },
+        {
+          "description": "Informational.",
+          "type": "string",
+          "const": "info"
+        },
+        {
+          "description": "Debug message.",
+          "type": "string",
+          "const": "debug"
+        }
+      ]
+    },
+    "MachineInfo": {
+      "description": "The machine and its firmware.",
+      "type": "object",
+      "properties": {
+        "arch": {
+          "description": "CPU architecture (`uname -m`, for example `x86_64`).",
+          "type": "string"
+        },
+        "dmi": {
+          "description": "Hardware identification from the SMBIOS/DMI tables.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DmiInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "firmware": {
+          "description": "Kind of firmware that booted the machine.",
+          "$ref": "#/$defs/FirmwareKind"
+        },
+        "uefi": {
+          "description": "UEFI details, when the firmware is UEFI.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UefiInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "arch",
+        "firmware"
+      ]
+    },
+    "Milestone": {
+      "description": "A key moment of the boot, placed on the boot clock.",
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "description": "How much `t_ns` can be trusted.",
+          "$ref": "#/$defs/Confidence"
+        },
+        "event": {
+          "description": "The event this milestone was detected from, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EventId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "explain_id": {
+          "description": "Identifier of the explanation of this milestone in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "description": "Which key moment this is.",
+          "$ref": "#/$defs/MilestoneKind"
+        },
+        "t_ns": {
+          "description": "When it happened on the boot clock, in ns.",
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "kind",
+        "t_ns",
+        "confidence"
+      ]
+    },
+    "MilestoneKind": {
+      "description": "A key moment of the boot. Each kind appears at most once in a record.",
+      "oneOf": [
+        {
+          "description": "The firmware starts running, right after the CPU leaves reset (FPDT `ResetEnd`).",
+          "type": "string",
+          "const": "firmware_start"
+        },
+        {
+          "description": "The firmware starts loading the bootloader image (FPDT `OsLoaderLoadImageStart`).",
+          "type": "string",
+          "const": "bootloader_load"
+        },
+        {
+          "description": "The firmware starts executing the bootloader (FPDT `OsLoaderStartImageStart`).",
+          "type": "string",
+          "const": "bootloader_start"
+        },
+        {
+          "description": "The firmware hands the machine over to the OS (end of UEFI `ExitBootServices`).",
+          "type": "string",
+          "const": "exit_boot_services"
+        },
+        {
+          "description": "The Linux kernel starts. Always at `0` on the boot clock.",
+          "type": "string",
+          "const": "kernel_start"
+        },
+        {
+          "description": "The kernel runs the initramfs `/init`.",
+          "type": "string",
+          "const": "initramfs_start"
+        },
+        {
+          "description": "The real root filesystem is mounted.",
+          "type": "string",
+          "const": "root_mounted"
+        },
+        {
+          "description": "The init system of the real root filesystem starts as PID 1.",
+          "type": "string",
+          "const": "init_start"
+        },
+        {
+          "description": "The init system starts launching services.",
+          "type": "string",
+          "const": "services_start"
+        },
+        {
+          "description": "A graphics driver is ready to display something (DRM/KMS driver initialized).",
+          "type": "string",
+          "const": "graphics_ready"
+        },
+        {
+          "description": "The display manager (login screen) starts.",
+          "type": "string",
+          "const": "display_manager_start"
+        },
+        {
+          "description": "The user session starts (login done, or automatic login).",
+          "type": "string",
+          "const": "session_start"
+        },
+        {
+          "description": "The compositor (or X server) of the user session starts.",
+          "type": "string",
+          "const": "compositor_start"
+        },
+        {
+          "description": "The desktop is usable: the session is up and the system has settled.",
+          "type": "string",
+          "const": "session_ready"
+        },
+        {
+          "description": "The recording stopped.",
+          "type": "string",
+          "const": "recording_end"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "OsInfo": {
+      "description": "The distribution, from `/etc/os-release`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "`ID` (for example `kira`, `debian`, `alpine`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id_like": {
+          "description": "`ID_LIKE`: distributions this one derives from.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "description": "`NAME`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pretty_name": {
+          "description": "`PRETTY_NAME`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version_id": {
+          "description": "`VERSION_ID`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Process": {
+      "description": "A process that ran during the boot, from its creation (`fork`) to its exit.\n\nA process can replace its program (`exec`) several times during its life:\n`comm`, `cmdline` and `exe` describe the last program it ran, and each `exec` is\nalso an event of kind `process_start`.",
+      "type": "object",
+      "properties": {
+        "cmdline": {
+          "description": "Full command line of the last program. Empty when unknown, and for kernel threads.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "comm": {
+          "description": "Short command name of the last program, as the kernel knows it (at most 15\ncharacters).",
+          "type": "string"
+        },
+        "confidence": {
+          "description": "How much `start_ns` and `end_ns` can be trusted.",
+          "$ref": "#/$defs/Confidence"
+        },
+        "end_ns": {
+          "description": "When the process exited on the boot clock, in ns. Absent if it was still\nrunning at the end of the capture.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "exe": {
+          "description": "Path of the executable of the last program.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exit_code": {
+          "description": "Exit code, if the process exited normally.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "exit_signal": {
+          "description": "Number of the signal that killed the process, if a signal killed it.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "explain_id": {
+          "description": "Identifier of the explanation of this program in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Identifier, unique within the record.",
+          "$ref": "#/$defs/ProcessId"
+        },
+        "parent": {
+          "description": "The process that started this one.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pid": {
+          "description": "PID given by the kernel.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ppid": {
+          "description": "PID of the parent, also given when the parent itself is not in the record.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "service": {
+          "description": "Name of the service this process belongs to, when the init system tells it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stage": {
+          "description": "The boot phase this process is attributed to.",
+          "$ref": "#/$defs/Stage"
+        },
+        "start_ns": {
+          "description": "When the process was created on the boot clock, in ns.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "pid",
+        "comm",
+        "stage",
+        "confidence"
+      ]
+    },
+    "ProcessId": {
+      "description": "Identifier of a [`Process`], unique within one record.\n\nDifferent from the PID: the kernel reuses PIDs, so one PID can belong to several\nprocesses during a boot.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "SourceReport": {
+      "description": "What happened with one data source during the capture.",
+      "type": "object",
+      "properties": {
+        "explain_id": {
+          "description": "Identifier of the explanation of this source in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Identifier of the source (for example `fpdt`, `tpm_eventlog`, `kmsg`). Events\nreference it in their `source` field. The known identifiers are listed in\n`docs/format.md`.",
+          "type": "string"
+        },
+        "raw_files": {
+          "description": "Raw files saved from this source, relative to the record directory. They keep\nthe original data so a record can be analyzed again with better rules.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "description": "Human-readable explanation when `status` is not `ok`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "description": "Whether the source could be read.",
+          "$ref": "#/$defs/SourceStatus"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ]
+    },
+    "SourceStatus": {
+      "description": "Whether a data source could be read.",
+      "oneOf": [
+        {
+          "description": "Fully read.",
+          "type": "string",
+          "const": "ok"
+        },
+        {
+          "description": "Read, but some data is missing (`reason` says what and why).",
+          "type": "string",
+          "const": "partial"
+        },
+        {
+          "description": "Not present on this system (`reason` says why: no TPM, BIOS boot, missing\nkernel option, not running as root...).",
+          "type": "string",
+          "const": "unavailable"
+        },
+        {
+          "description": "Present but reading it failed (`reason` holds the error).",
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "Stage": {
+      "description": "A phase of the boot, in the order in which phases start.\n\nPhases can overlap: services keep starting while the graphical session comes up,\nand the kernel keeps logging after it started the init system.",
+      "oneOf": [
+        {
+          "description": "From power-on to the firmware starting the bootloader (UEFI or BIOS).",
+          "type": "string",
+          "const": "firmware"
+        },
+        {
+          "description": "The bootloader (GRUB, systemd-boot...) choosing and loading the kernel.",
+          "type": "string",
+          "const": "bootloader"
+        },
+        {
+          "description": "The kernel initializing the hardware and itself, until it runs the first process.",
+          "type": "string",
+          "const": "kernel"
+        },
+        {
+          "description": "The early userspace from the initramfs, until it switches to the real root\nfilesystem. Absent when the system boots without an initramfs.",
+          "type": "string",
+          "const": "initramfs"
+        },
+        {
+          "description": "The init system (PID 1) setting up the base system: mounts, devices, hostname...",
+          "type": "string",
+          "const": "init"
+        },
+        {
+          "description": "Services being started by the init system or its service supervisor.",
+          "type": "string",
+          "const": "services"
+        },
+        {
+          "description": "Display stack coming up: graphics driver, display manager or compositor.",
+          "type": "string",
+          "const": "graphical"
+        },
+        {
+          "description": "The user session starting, until the desktop is ready and the system settled.",
+          "type": "string",
+          "const": "session"
+        },
+        {
+          "description": "Everything after the session is ready.",
+          "type": "string",
+          "const": "runtime"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "StageSpan": {
+      "description": "The time span of one [`Stage`] during this boot.",
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "description": "How much `start_ns` and `end_ns` can be trusted.",
+          "$ref": "#/$defs/Confidence"
+        },
+        "end_ns": {
+          "description": "End of the stage on the boot clock, in ns. Absent if the stage did not end\nbefore the capture.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "explain_id": {
+          "description": "Identifier of the explanation of this stage in the knowledge base.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stage": {
+          "description": "The stage this span describes.",
+          "$ref": "#/$defs/Stage"
+        },
+        "start_ns": {
+          "description": "Start of the stage on the boot clock, in ns.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "stage",
+        "confidence"
+      ]
+    },
+    "UefiInfo": {
+      "description": "UEFI firmware details.",
+      "type": "object",
+      "properties": {
+        "platform_bits": {
+          "description": "Bitness of the firmware (32 or 64), which can differ from the kernel's.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "secure_boot": {
+          "description": "Whether Secure Boot was enabled.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "spec_version": {
+          "description": "UEFI specification version the firmware implements (for example `2.70`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendor": {
+          "description": "Firmware vendor (`/sys/firmware/efi/fw_vendor`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

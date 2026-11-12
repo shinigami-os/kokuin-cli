@@ -1,0 +1,18 @@
+[package]
+name = "kokuin-sources"
+version.workspace = true
+description = "Readers for the data sources of a kokuin boot record: firmware tables, TPM log, EFI variables, kernel log, processes, init systems"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+flate2 = "1.1.11"
+jiff = "0.2.43"
+kokuin-model = { version = "0.1.0", path = "../kokuin-model" }
+rustix = { version = "1.1.6", features = ["fs", "time", "param"] }
+serde_json = "1.0.154"
+
+[lints]
+workspace = true

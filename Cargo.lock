@@ -282,6 +282,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kokuin-init"
+version = "0.1.0"
+
+[[package]]
 name = "kokuin-kb"
 version = "0.1.0"
 dependencies = [

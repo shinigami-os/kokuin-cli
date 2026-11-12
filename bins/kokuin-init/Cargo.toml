@@ -1,0 +1,14 @@
+[package]
+name = "kokuin-init"
+version.workspace = true
+description = "Starts kokuin's boot recorder, then becomes the real init (installed as /usr/lib/kokuin/kokuin-init, used with init=)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# No dependencies: this runs as PID 1, the less it does, the better.
+[dependencies]
+
+[lints]
+workspace = true

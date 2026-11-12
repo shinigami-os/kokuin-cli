@@ -7,10 +7,10 @@
 
 use std::collections::BTreeMap;
 
-use kokuin_model::{Confidence, EndReason, SourceStatus};
+use kokuin_model::{Confidence, EndReason, EventKind, MilestoneKind, SourceStatus};
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, ProcessInfo, Source, SourceOutput, report};
+use crate::{Context, Observation, ProcessInfo, Source, SourceOutput, report};
 
 /// Where the recorder publishes what it saw.
 pub const RECORDER_DIR: &str = "/run/kokuin/recorder";
@@ -179,7 +179,10 @@ impl Source for ProcEvents {
         let replay = replay(&lines);
 
         let mut problems = Vec::new();
-        if replay.method == Some(WatchMethod::Polling) {
+        if replay
+            .started
+            .is_some_and(|(_, method)| method == WatchMethod::Polling)
+        {
             problems.push(
                 "processes were polled (the kernel lacks CONFIG_PROC_EVENTS): times are \
                  approximate and very short processes are missing"
@@ -202,12 +205,55 @@ impl Source for ProcEvents {
                 Some(problems.join("; ")),
             )
         };
+        let observations = recording_observations(&replay);
         SourceOutput {
             report,
-            observations: Vec::new(),
+            observations,
             processes: replay.processes,
         }
     }
+}
+
+/// The recorder starting and stopping, on the timeline.
+fn recording_observations(replay: &Replay) -> Vec<Observation> {
+    let mut observations = Vec::new();
+    if let Some((t_ns, method)) = replay.started {
+        let how = match method {
+            WatchMethod::ProcEvents => "with the kernel's process events",
+            WatchMethod::Polling => "by polling /proc",
+        };
+        observations.push(
+            Observation::new(
+                EventKind::Recording,
+                format!("kokuin's recorder started watching processes {how}"),
+                Some(t_ns),
+                Confidence::Exact,
+            )
+            .explained_by(EXPLAIN),
+        );
+    }
+    if let Some((t_ns, reason)) = replay.stopped {
+        let title = match reason {
+            EndReason::SessionReady => {
+                "kokuin's recorder stopped: the desktop was ready and settled"
+            }
+            EndReason::Timeout => "kokuin's recorder stopped at its time limit",
+            _ => "kokuin's recorder stopped",
+        };
+        let reason = serde_json::to_value(reason).unwrap_or_default();
+        observations.push(
+            Observation::new(EventKind::Recording, title, Some(t_ns), Confidence::Exact)
+                .explained_by(EXPLAIN)
+                .marks(MilestoneKind::RecordingEnd)
+                .with("reason", reason),
+        );
+    }
+    observations
+}
+
+/// Why the recorder stopped, from the event marking the end of a recording.
+pub fn end_reason(event: &kokuin_model::Event) -> Option<EndReason> {
+    serde_json::from_value(event.data.get("reason")?.clone()).ok()
 }
 
 /// What the lines tell, once replayed in order.
@@ -215,8 +261,8 @@ impl Source for ProcEvents {
 pub struct Replay {
     /// One process per PID lifetime, with the last program it ran.
     pub processes: Vec<ProcessInfo>,
-    /// How processes were watched.
-    pub method: Option<WatchMethod>,
+    /// When the recorder started, and how it watched processes.
+    pub started: Option<(i64, WatchMethod)>,
     /// Whether events were lost.
     pub lost: bool,
     /// When and why the recorder stopped.
@@ -233,8 +279,8 @@ pub fn replay(lines: &[Line]) -> Replay {
 
     for line in lines {
         match line {
-            Line::Started { method, .. } => {
-                replay.method = Some(*method);
+            Line::Started { t_ns, method } => {
+                replay.started = Some((*t_ns, *method));
                 if *method == WatchMethod::Polling {
                     confidence = Confidence::Approximate;
                 }
@@ -359,7 +405,10 @@ mod tests {
     #[test]
     fn rebuilds_one_process_per_pid_lifetime() {
         let replay = replay(&sample());
-        assert_eq!(replay.method, Some(WatchMethod::ProcEvents));
+        assert_eq!(
+            replay.started,
+            Some((1_500_000_000, WatchMethod::ProcEvents))
+        );
         assert_eq!(
             replay.stopped,
             Some((20_000_000_000, EndReason::SessionReady))

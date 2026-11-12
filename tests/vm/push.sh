@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds kokuin-cli as a static (musl) binary and installs it in a running
-# test VM, as /usr/local/bin/kokuin-cli.
+# Builds kokuin-cli and kokuin-init as static (musl) binaries and installs them in a
+# running test VM where a package would put them: /usr/bin/kokuin-cli and
+# /usr/lib/kokuin/kokuin-init.
 #
 # Usage: push.sh VM
 set -euo pipefail
@@ -16,12 +17,14 @@ fi
 require cargo "install Rust with rustup"
 
 target=x86_64-unknown-linux-musl
-log "building kokuin-cli for $target"
-cargo build --quiet --release --locked --target "$target" -p kokuin-cli \
+log "building kokuin-cli and kokuin-init for $target"
+cargo build --quiet --release --locked --target "$target" -p kokuin-cli -p kokuin-init \
     --manifest-path "$REPO_DIR/Cargo.toml"
-binary="$REPO_DIR/target/$target/release/kokuin-cli"
+built="$REPO_DIR/target/$target/release"
 
-log "installing it in the $1 VM"
+log "installing them in the $1 VM"
 # shellcheck disable=SC2046 # the options are meant to be split
-scp $(ssh_options) -P "$SSH_PORT" "$binary" "$VM_USER@127.0.0.1:/tmp/kokuin-cli"
-"$SCRIPT_DIR/ssh.sh" "$1" sudo install -m 0755 /tmp/kokuin-cli /usr/local/bin/kokuin-cli
+scp $(ssh_options) -P "$SSH_PORT" "$built/kokuin-cli" "$built/kokuin-init" \
+    "$VM_USER@127.0.0.1:/tmp/"
+"$SCRIPT_DIR/ssh.sh" "$1" "sudo install -m 0755 /tmp/kokuin-cli /usr/bin/kokuin-cli &&
+    sudo install -D -m 0755 /tmp/kokuin-init /usr/lib/kokuin/kokuin-init"

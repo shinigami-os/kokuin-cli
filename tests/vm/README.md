@@ -24,7 +24,7 @@ rustup target add x86_64-unknown-linux-musl
 ```sh
 tests/vm/fetch.sh                 # download and verify the images (about 1 GB)
 tests/vm/run.sh alpine            # boot; the first boot installs the desktop, then reboots
-tests/vm/push.sh alpine           # build kokuin-cli and install it in the VM (another terminal)
+tests/vm/push.sh alpine           # build kokuin-cli and kokuin-init and install them (another terminal)
 tests/vm/ssh.sh alpine sudo kokuin-cli show
 ```
 

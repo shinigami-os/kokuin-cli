@@ -129,7 +129,8 @@ fn manager_observations(manager: &Properties) -> Vec<Observation> {
                 Confidence::Exact,
             )
             .in_stage(Stage::Initramfs)
-            .explained_by("stage.initramfs"),
+            .explained_by("stage.initramfs")
+            .marks(MilestoneKind::InitramfsStart),
         );
     }
     if let Some(t) = monotonic_ns(manager, "UserspaceTimestampMonotonic") {
@@ -194,7 +195,7 @@ fn unit_observation(unit: &Properties) -> Option<Observation> {
             },
         );
     if let (Some(start), Some(end)) = (started, active) {
-        observation.dur_ns = u64::try_from(end - start).ok();
+        observation.dur_ns = u64::try_from(end - start).ok().filter(|&ns| ns > 0);
     }
     if let Some(pid) = unit
         .get("ExecMainPID")

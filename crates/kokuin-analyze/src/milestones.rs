@@ -2,10 +2,13 @@
 
 use std::collections::BTreeMap;
 
-use kokuin_kb::KmsgTag;
+use kokuin_kb::{KmsgTag, ProcessRole};
 use kokuin_model::{Confidence, EventKind, MilestoneKind};
 
-use crate::{item::Item, processes::Processes};
+use crate::{
+    item::{Affinity, Item},
+    processes::Processes,
+};
 
 /// A detected milestone. `item` is the `order` of the item it comes from.
 #[derive(Debug, Clone, PartialEq)]
@@ -113,6 +116,25 @@ pub(crate) fn detect(items: &[Item], processes: &Processes, kmsg_available: bool
         if let (Some(item), Some(t_ns)) = (item, user.process.start_ns) {
             candidates.push(Found {
                 kind: MilestoneKind::SessionStart,
+                t_ns,
+                confidence: Confidence::Approximate,
+                item: Some(item.order),
+            });
+        }
+    }
+
+    // A compositor that is also the desktop shell is ready when it starts.
+    let compositor_shells = processes
+        .entries
+        .iter()
+        .filter(|e| e.role == Some(ProcessRole::CompositorShell) && e.affinity == Affinity::User);
+    for entry in compositor_shells {
+        let item = items
+            .iter()
+            .find(|i| i.obs.kind == EventKind::ProcessStart && i.process == Some(entry.process.id));
+        if let (Some(item), Some(t_ns)) = (item, entry.process.start_ns) {
+            candidates.push(Found {
+                kind: MilestoneKind::SessionReady,
                 t_ns,
                 confidence: Confidence::Approximate,
                 item: Some(item.order),

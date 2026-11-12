@@ -18,10 +18,13 @@ mod processes;
 mod stages;
 
 use kokuin_kb::Kb;
-use kokuin_model::{BootRecord, CaptureInfo, ComponentInfo, EventId, Milestone, SourceStatus};
+use kokuin_model::{
+    BootRecord, CaptureInfo, ComponentInfo, EventId, EventKind, Milestone, MilestoneKind,
+    SourceStatus,
+};
 use kokuin_sources::{Context, SourceOutput, system::SystemInfo};
 
-use crate::item::Item;
+use crate::item::{Affinity, Item};
 
 /// Everything collected for one boot.
 #[derive(Debug, Clone)]
@@ -90,6 +93,17 @@ pub fn build_record(collected: Collected, capture: CaptureInfo, kb: &Kb) -> Boot
         );
     }
     enrich::apply_kmsg_rules(&mut items, kb);
+    for item in items.iter_mut() {
+        let from_init_system =
+            matches!(item.obs.kind, EventKind::Service | EventKind::Mount) && item.source != "kmsg";
+        if from_init_system {
+            item.affinity = processes::service_affinity(item, kb);
+            // The display manager service starting is the login screen starting.
+            if item.affinity == Affinity::Graphical && item.obs.milestone.is_none() {
+                item.obs.milestone = Some(MilestoneKind::DisplayManagerStart);
+            }
+        }
+    }
 
     // 2. Processes, and their start events.
     let mut processes = processes::build(process_infos, kb);

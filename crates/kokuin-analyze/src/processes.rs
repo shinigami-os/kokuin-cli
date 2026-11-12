@@ -99,6 +99,22 @@ pub(crate) fn build(infos: Vec<(String, ProcessInfo)>, kb: &Kb) -> Processes {
     }
 }
 
+/// Affinity of a service event (`data.service` or `data.unit`): graphical for
+/// display managers, system otherwise.
+pub(crate) fn service_affinity(item: &Item, kb: &Kb) -> Affinity {
+    let name = ["service", "unit"]
+        .iter()
+        .find_map(|key| item.obs.data.get(*key)?.as_str());
+    let program = name.map(|n| n.rsplit_once('.').map_or(n, |(base, _)| base));
+    match program
+        .and_then(|p| kb.match_process([p]))
+        .map(|rule| rule.role)
+    {
+        Some(ProcessRole::DisplayManager) => Affinity::Graphical,
+        _ => Affinity::System,
+    }
+}
+
 /// Names a rule can recognize: command name, executable and first argument.
 fn names(info: &ProcessInfo) -> Vec<&str> {
     let mut names = vec![info.comm.as_str()];
@@ -174,7 +190,12 @@ fn affinity(entries: &[ProcessEntry], index: usize) -> Affinity {
     let graphical_role = |e: &ProcessEntry| {
         matches!(
             e.role,
-            Some(ProcessRole::DisplayManager | ProcessRole::Compositor | ProcessRole::SessionShell)
+            Some(
+                ProcessRole::DisplayManager
+                    | ProcessRole::Compositor
+                    | ProcessRole::SessionShell
+                    | ProcessRole::CompositorShell
+            )
         )
     };
     let under_display_manager =
@@ -186,17 +207,20 @@ fn affinity(entries: &[ProcessEntry], index: usize) -> Affinity {
     }
 }
 
-/// Name to show: the executable file name when the command name is a truncated
-/// version of it.
+/// Name to show: the command name, or the full program name when the kernel
+/// truncated it (15 characters), taken from the executable or the command line.
 fn display_name(process: &Process) -> &str {
-    let exe_name = process
-        .exe
-        .as_deref()
-        .and_then(|exe| exe.rsplit('/').next());
-    match exe_name {
-        Some(name) if process.comm.len() >= 15 && name.starts_with(&process.comm) => name,
-        _ => &process.comm,
+    if process.comm.len() < 15 {
+        return &process.comm;
     }
+    process
+        .exe
+        .iter()
+        .chain(process.cmdline.first())
+        // Programs can rewrite their command line: `gdm-session-worker [pam/gdm]`.
+        .filter_map(|path| path.split_whitespace().next()?.rsplit('/').next())
+        .find(|name| name.starts_with(&process.comm))
+        .unwrap_or(&process.comm)
 }
 
 fn start_item(entry: &ProcessEntry, source: &str) -> Option<Item> {
@@ -212,7 +236,10 @@ fn start_item(entry: &ProcessEntry, source: &str) -> Option<Item> {
     let milestone = match entry.role {
         Some(ProcessRole::ServiceSupervisor) => Some(MilestoneKind::ServicesStart),
         Some(ProcessRole::DisplayManager) => Some(MilestoneKind::DisplayManagerStart),
-        Some(ProcessRole::Compositor) if user => Some(MilestoneKind::CompositorStart),
+        // A compositor-shell also marks `session_ready`, see `milestones::detect`.
+        Some(ProcessRole::Compositor | ProcessRole::CompositorShell) if user => {
+            Some(MilestoneKind::CompositorStart)
+        }
         Some(ProcessRole::SessionShell) if user => Some(MilestoneKind::SessionReady),
         _ => None,
     };
@@ -311,6 +338,17 @@ mod tests {
         assert_eq!(
             processes.find(455, Some(4_000_000_000)),
             Some(by_pid(455).process.id)
+        );
+    }
+
+    #[test]
+    fn shows_full_names_of_truncated_commands() {
+        let (_, mut worker) = info(700, 455, 0, "gdm-session-wor", 18_620);
+        worker.cmdline = vec!["gdm-session-worker [pam/gdm-password]".into()];
+        let processes = build(vec![("procfs".into(), worker)], Kb::embedded());
+        assert_eq!(
+            processes.start_items[0].obs.title,
+            "gdm-session-worker started"
         );
     }
 

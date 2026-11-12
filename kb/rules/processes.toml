@@ -3,12 +3,14 @@
 # The first rule listing one of the program's names wins. Fields:
 #   names    Program names.
 #   role     service_supervisor, device_manager, login, display_manager,
-#            compositor, session_shell, or other (only explained).
+#            compositor, session_shell, compositor_shell (both), or other
+#            (only explained).
 #   explain  Id of the article explaining the program.
 #
 # Roles mark milestones: service_supervisor -> services_start,
 # display_manager -> display_manager_start; for processes of a normal user,
-# compositor -> compositor_start and session_shell -> session_ready.
+# compositor -> compositor_start, session_shell -> session_ready, and
+# compositor_shell -> both.
 
 [[process]]
 names = ["runit", "runit-init"]
@@ -51,8 +53,13 @@ role = "display_manager"
 explain = "graphics.display_manager"
 
 [[process]]
+names = ["gnome-shell"]
+role = "compositor_shell"
+explain = "session.compositor"
+
+[[process]]
 names = [
-    "sway", "Hyprland", "hyprland", "kwin_wayland", "kwin_x11", "gnome-shell", "mutter",
+    "sway", "Hyprland", "hyprland", "kwin_wayland", "kwin_x11", "mutter",
     "weston", "labwc", "river", "niri", "wayfire", "cage", "cosmic-comp", "Xorg", "X", "Xwayland",
 ]
 role = "compositor"

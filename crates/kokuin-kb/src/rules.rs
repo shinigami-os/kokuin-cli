@@ -119,6 +119,9 @@ pub enum ProcessRole {
     Compositor,
     /// Panel, bar or desktop shell: marks `session_ready` in a user session.
     SessionShell,
+    /// Compositor that is also the desktop shell (GNOME Shell): marks both
+    /// `compositor_start` and `session_ready` in a user session.
+    CompositorShell,
     /// Recognized only to explain it.
     Other,
 }

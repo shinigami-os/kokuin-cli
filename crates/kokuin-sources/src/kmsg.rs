@@ -100,7 +100,15 @@ impl Source for Kmsg {
             ),
         };
         let mut observations: Vec<Observation> = records.into_iter().map(observation).collect();
-        if let Some(clock) = KmsgClock::load(ctx) {
+        let settled = observations
+            .iter()
+            .find(|o| {
+                o.message
+                    .as_deref()
+                    .is_some_and(KmsgClock::is_clock_source_switch)
+            })
+            .and_then(|o| o.t_ns);
+        if let Some(clock) = KmsgClock::load(ctx, settled) {
             for observation in &mut observations {
                 if let Some(t_ns) = observation.t_ns {
                     observation.t_ns = Some(clock.to_boot_ns(t_ns));

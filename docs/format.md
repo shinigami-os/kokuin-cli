@@ -54,7 +54,8 @@ sources read it, so a raw snapshot of that boot includes it:
   about once a second (`samples`: `kmsg_ns`, `offset_ns`). The kernel stamps its log
   with the scheduler clock; everything else uses `CLOCK_MONOTONIC`. They usually
   agree, but a virtual machine or a time daemon (chrony slews the monotonic clock)
-  can make them drift apart by a fraction of a second. With this file, kernel
+  can make them drift apart by a fraction of a second, mostly before the kernel
+  switches to its final clock source. With this file, kernel
   messages are moved onto the boot clock, and keep their original time in
   `data.kmsg_ns`. Boots that were not recorded have no such measure.
 - `processes.jsonl`: one JSON object per line, `event` telling which:

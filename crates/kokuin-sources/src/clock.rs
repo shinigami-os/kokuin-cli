@@ -6,6 +6,11 @@
 //! monotonic clock can lag early in the boot. Time daemons (chrony, ntpd) also speed
 //! it up or slow it down to correct the time, which the scheduler clock ignores.
 //!
+//! The gap builds up early: until the kernel switches to its final clock source
+//! (`clocksource: Switched to clocksource ...`, well before the first second), the
+//! monotonic clock counts timer ticks, and some get lost. After that, it only moves
+//! when a time daemon starts correcting the time.
+//!
 //! While it runs, the boot recorder measures the gap: it reads each kernel message
 //! as soon as it is written and notes the monotonic time
 //! (`/run/kokuin/recorder/clock.json`). The kernel log source then places its
@@ -45,22 +50,38 @@ pub struct KmsgClock {
 
 impl KmsgClock {
     /// The conversion measured by the boot recorder, if the boot was recorded.
-    pub fn load(ctx: &Context) -> Option<Self> {
+    /// `settled_kmsg_ns` is when the kernel switched to its final clock source.
+    pub fn load(ctx: &Context, settled_kmsg_ns: Option<i64>) -> Option<Self> {
         let text = ctx.read_text(PATH).ok()?;
         let file: ClockFile = serde_json::from_str(&text).ok()?;
-        (!file.samples.is_empty()).then(|| Self::from_samples(file.samples))
+        (!file.samples.is_empty()).then(|| Self::from_samples(file.samples, settled_kmsg_ns))
     }
 
-    /// The conversion from measured gaps.
-    pub fn from_samples(mut samples: Vec<ClockSample>) -> Self {
+    /// The conversion from measured gaps. The gap grows from 0 at the kernel start to
+    /// the first measure when the clock source settles (`settled_kmsg_ns`; at the
+    /// first measure if unknown), and follows the measures afterwards.
+    pub fn from_samples(mut samples: Vec<ClockSample>, settled_kmsg_ns: Option<i64>) -> Self {
         samples.sort_by_key(|s| s.kmsg_ns);
         samples.retain(|s| s.kmsg_ns > 0);
         let mut points = vec![ClockSample {
             kmsg_ns: 0,
             offset_ns: 0,
         }];
+        if let (Some(settled), Some(first)) = (settled_kmsg_ns, samples.first()) {
+            if settled > 0 && settled < first.kmsg_ns {
+                points.push(ClockSample {
+                    kmsg_ns: settled,
+                    offset_ns: first.offset_ns,
+                });
+            }
+        }
         points.extend(samples);
         Self { points }
+    }
+
+    /// Whether a kernel message tells that the kernel switched clock source.
+    pub fn is_clock_source_switch(message: &str) -> bool {
+        message.starts_with("clocksource: Switched to clocksource")
     }
 
     /// The boot clock time of a kernel log time: the gap is interpolated between
@@ -91,17 +112,34 @@ mod tests {
     const MS: i64 = 1_000_000;
 
     #[test]
+    fn the_gap_is_reached_when_the_clock_source_settles() {
+        let clock = KmsgClock::from_samples(
+            vec![ClockSample {
+                kmsg_ns: 2_500 * MS,
+                offset_ns: -260 * MS,
+            }],
+            Some(700 * MS),
+        );
+        assert_eq!(clock.to_boot_ns(350 * MS), 220 * MS);
+        assert_eq!(clock.to_boot_ns(700 * MS), 440 * MS);
+        assert_eq!(clock.to_boot_ns(2_200 * MS), 1_940 * MS);
+    }
+
+    #[test]
     fn interpolates_between_measures() {
-        let clock = KmsgClock::from_samples(vec![
-            ClockSample {
-                kmsg_ns: 4_000 * MS,
-                offset_ns: -400 * MS,
-            },
-            ClockSample {
-                kmsg_ns: 2_000 * MS,
-                offset_ns: -300 * MS,
-            },
-        ]);
+        let clock = KmsgClock::from_samples(
+            vec![
+                ClockSample {
+                    kmsg_ns: 4_000 * MS,
+                    offset_ns: -400 * MS,
+                },
+                ClockSample {
+                    kmsg_ns: 2_000 * MS,
+                    offset_ns: -300 * MS,
+                },
+            ],
+            None,
+        );
         // From 0 at the kernel start to the first measure.
         assert_eq!(clock.to_boot_ns(1_000 * MS), 850 * MS);
         assert_eq!(clock.to_boot_ns(2_000 * MS), 1_700 * MS);

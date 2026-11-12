@@ -17,6 +17,8 @@ pub const RECORDER_DIR: &str = "/run/kokuin/recorder";
 /// The process events written by the recorder.
 pub const PATH: &str = "/run/kokuin/recorder/processes.jsonl";
 const EXPLAIN: &str = "init.proc_events";
+/// How kokuin records a boot.
+const RECORDING_EXPLAIN: &str = "init.kokuin";
 
 /// One line of `processes.jsonl`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -230,7 +232,7 @@ fn recording_observations(replay: &Replay) -> Vec<Observation> {
                 Some(t_ns),
                 Confidence::Approximate,
             )
-            .explained_by("init.pid1")
+            .explained_by(RECORDING_EXPLAIN)
             .marks(MilestoneKind::InitStart),
         );
     }
@@ -246,7 +248,7 @@ fn recording_observations(replay: &Replay) -> Vec<Observation> {
                 Some(t_ns),
                 Confidence::Exact,
             )
-            .explained_by(EXPLAIN),
+            .explained_by(RECORDING_EXPLAIN),
         );
     }
     if let Some((t_ns, reason)) = replay.stopped {
@@ -260,7 +262,7 @@ fn recording_observations(replay: &Replay) -> Vec<Observation> {
         let reason = serde_json::to_value(reason).unwrap_or_default();
         observations.push(
             Observation::new(EventKind::Recording, title, Some(t_ns), Confidence::Exact)
-                .explained_by(EXPLAIN)
+                .explained_by(RECORDING_EXPLAIN)
                 .marks(MilestoneKind::RecordingEnd)
                 .with("reason", reason),
         );

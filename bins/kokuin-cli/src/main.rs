@@ -87,6 +87,18 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Record every boot from now on: adds kokuin-init to the kernel command line.
+    Enable {
+        /// Only show what would change.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Stop recording boots: removes what `enable` added.
+    Disable {
+        /// Only show what would change.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Print the JSON Schema of boot records.
     Schema,
     /// Record the current boot. Started by kokuin-init at the beginning of a boot.
@@ -159,6 +171,8 @@ fn main() -> ExitCode {
             commands::timeline::run(record, filter, details, json)
         }
         Command::Explain { id, json } => commands::explain::run(id, json),
+        Command::Enable { dry_run } => commands::enable::enable(dry_run),
+        Command::Disable { dry_run } => commands::enable::disable(dry_run),
         Command::Schema => commands::schema::run(),
         Command::Record => commands::record::run(),
     };

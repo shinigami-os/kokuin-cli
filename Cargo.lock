@@ -264,6 +264,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kokuin-bootcfg"
+version = "0.1.0"
+
+[[package]]
 name = "kokuin-cli"
 version = "0.1.0"
 dependencies = [
@@ -271,6 +275,7 @@ dependencies = [
  "anstyle",
  "clap",
  "kokuin-analyze",
+ "kokuin-bootcfg",
  "kokuin-kb",
  "kokuin-model",
  "kokuin-recorder",

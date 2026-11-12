@@ -30,6 +30,10 @@ pub struct Process {
     /// PID of the parent, also given when the parent itself is not in the record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ppid: Option<u32>,
+    /// User id the process ran as. Processes of normal users (1000 and above) belong
+    /// to a user session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u32>,
     /// Short command name of the last program, as the kernel knows it (at most 15
     /// characters).
     pub comm: String,

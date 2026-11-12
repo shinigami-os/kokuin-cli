@@ -53,7 +53,7 @@
   },
   "sources": [
     { "id": "fpdt", "status": "ok", "raw_files": ["raw/fpdt.json"], "explain_id": "firmware.fpdt" },
-    { "id": "tpm_eventlog", "status": "ok", "raw_files": ["raw/tpm_eventlog.bin"], "explain_id": "firmware.tpm_eventlog" },
+    { "id": "tpm_eventlog", "status": "ok", "raw_files": ["raw/tpm_eventlog.bin"], "explain_id": "firmware.measured_boot" },
     { "id": "efivars", "status": "ok", "explain_id": "firmware.efivars" },
     { "id": "dmi", "status": "ok", "explain_id": "firmware.dmi" },
     { "id": "kmsg", "status": "ok", "raw_files": ["raw/kmsg.txt"], "explain_id": "kernel.kmsg" },
@@ -112,12 +112,12 @@
       "explain_id": "init.runit_stage2"
     },
     {
-      "id": 5, "pid": 455, "ppid": 452, "comm": "greetd", "cmdline": ["greetd"], "exe": "/usr/bin/greetd",
+      "id": 5, "pid": 455, "ppid": 452, "comm": "greetd", "uid": 0, "cmdline": ["greetd"], "exe": "/usr/bin/greetd",
       "start_ns": 3100000000, "service": "greetd", "stage": "graphical", "confidence": "exact",
-      "explain_id": "graphics.greetd"
+      "explain_id": "graphics.display_manager"
     },
     {
-      "id": 6, "pid": 612, "parent": 5, "ppid": 455, "comm": "sway", "cmdline": ["sway"], "exe": "/usr/bin/sway",
+      "id": 6, "pid": 612, "parent": 5, "ppid": 455, "comm": "sway", "uid": 1000, "cmdline": ["sway"], "exe": "/usr/bin/sway",
       "start_ns": 5800000000, "stage": "session", "confidence": "exact", "explain_id": "session.compositor"
     }
   ],
@@ -125,7 +125,7 @@
     {
       "id": 1, "t_ns": -7070000000, "confidence": "approximate", "stage": "firmware", "source": "fpdt",
       "kind": "firmware_timing", "title": "Firmware started (CPU left reset)", "explain_id": "firmware.reset",
-      "data": { "field": "reset_end_ns", "firmware_ns": 350000000 }
+      "data": { "field": "firmware_start_ns", "firmware_ns": 350000000 }
     },
     {
       "id": 2, "confidence": "inferred", "stage": "firmware", "source": "tpm_eventlog",
@@ -140,7 +140,7 @@
     {
       "id": 4, "t_ns": -2320000000, "confidence": "approximate", "stage": "bootloader", "source": "fpdt",
       "kind": "firmware_timing", "title": "Firmware started loading the bootloader", "explain_id": "firmware.fpdt",
-      "data": { "field": "load_start_ns", "firmware_ns": 5100000000 }
+      "data": { "field": "bootloader_load_ns", "firmware_ns": 5100000000 }
     },
     {
       "id": 5, "confidence": "inferred", "stage": "bootloader", "source": "tpm_eventlog",
@@ -151,7 +151,7 @@
     {
       "id": 6, "t_ns": -2270000000, "confidence": "approximate", "stage": "bootloader", "source": "fpdt",
       "kind": "firmware_timing", "title": "Firmware started the bootloader", "explain_id": "firmware.fpdt",
-      "data": { "field": "startup_start_ns", "firmware_ns": 5150000000 }
+      "data": { "field": "bootloader_launch_ns", "firmware_ns": 5150000000 }
     },
     {
       "id": 7, "confidence": "inferred", "stage": "bootloader", "source": "tpm_eventlog",
@@ -211,7 +211,7 @@
     },
     {
       "id": 17, "t_ns": 3100000000, "confidence": "exact", "stage": "graphical", "source": "runit",
-      "kind": "service", "title": "Service greetd started (login manager)", "process": 5, "explain_id": "graphics.greetd",
+      "kind": "service", "title": "Service greetd started (login manager)", "process": 5, "explain_id": "graphics.display_manager",
       "data": { "service": "greetd", "state": "run" }
     },
     {

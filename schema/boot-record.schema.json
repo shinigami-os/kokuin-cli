@@ -903,6 +903,15 @@
             "null"
           ],
           "format": "int64"
+        },
+        "uid": {
+          "description": "User id the process ran as. Processes of normal users (1000 and above) belong\nto a user session.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
         }
       },
       "required": [

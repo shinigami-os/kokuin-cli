@@ -47,7 +47,7 @@ through `kokuin-cli` rather than read that directory, which may change.
   clock of process events.
 - Negative values are before the kernel: firmware and bootloader. The firmware has
   its own clock (ACPI FPDT, counting from the CPU reset), converted with
-  `boot_ns = firmware_ns - exitbootservice_end_ns`. This assumes the kernel starts
+  `boot_ns = firmware_ns - exitbootservice_end_ns` (FPDT values from `/sys/firmware/acpi/fpdt/boot/`). This assumes the kernel starts
   right when the firmware hands over, which is true to within a few milliseconds, so
   these times have `confidence: approximate`.
 - The time between pressing the power button and the end of the CPU reset is not
@@ -130,10 +130,10 @@ to the event the milestone was detected from, when there is one.
 
 | Kind | Detected from |
 |---|---|
-| `firmware_start` | FPDT `ResetEnd` |
-| `bootloader_load` | FPDT `OsLoaderLoadImageStart` |
-| `bootloader_start` | FPDT `OsLoaderStartImageStart` |
-| `exit_boot_services` | FPDT `ExitBootServicesExit` |
+| `firmware_start` | FPDT `firmware_start_ns` (ACPI name: `ResetEnd`) |
+| `bootloader_load` | FPDT `bootloader_load_ns` (`OsLoaderLoadImageStart`) |
+| `bootloader_start` | FPDT `bootloader_launch_ns` (`OsLoaderStartImageStart`) |
+| `exit_boot_services` | FPDT `exitbootservice_end_ns` (`ExitBootServicesExit`) |
 | `kernel_start` | always `0` |
 | `initramfs_start` | kernel log `Run /init as init process` |
 | `root_mounted` | kernel log, mount of the root filesystem |
@@ -141,9 +141,9 @@ to the event the milestone was detected from, when there is one.
 | `services_start` | init-system specific (runit stage 2, systemd `basic.target`, OpenRC `default` runlevel...) |
 | `graphics_ready` | kernel log, DRM driver initialized |
 | `display_manager_start` | a known display manager process starting |
-| `session_start` | user login, or automatic login |
-| `compositor_start` | a known compositor / X server process starting in the session |
-| `session_ready` | session shell running and the system settled (CPU and disk quiet) |
+| `session_start` | first process of a normal user (uid ≥ 1000): login, or automatic login |
+| `compositor_start` | a known compositor / X server process of a normal user starting |
+| `session_ready` | the session shell (panel, bar, desktop shell) running and, when recording live, the system settled (CPU and disk quiet) |
 | `recording_end` | the recorder stopping, `settle` seconds after `session_ready` |
 
 ## Well-known identifiers

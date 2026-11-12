@@ -10,7 +10,8 @@ use kokuin_sources::{
 use serde_json::json;
 
 use crate::{
-    Failure,
+    Failure, boots,
+    commands::enable,
     output::{paint, status_symbol, style},
 };
 
@@ -60,6 +61,7 @@ pub fn run(json: bool) -> Result<(), Failure> {
         },
     );
 
+    let recorder = RecorderState::read();
     if json {
         let sources: Vec<_> = states
             .iter()
@@ -80,6 +82,12 @@ pub fn run(json: bool) -> Result<(), Failure> {
             "init": init,
             "kernel_config": config.as_ref().ok().map(|c| c.origin.clone()),
             "sources": sources,
+            "recorder": {
+                "installed": recorder.installed,
+                "enabled": recorder.enabled,
+                "current_boot": recorder.current_boot,
+                "boots_recorded": recorder.boots_recorded,
+            },
         });
         println!("{}", serde_json::to_string_pretty(&status)?);
         return Ok(());
@@ -153,6 +161,7 @@ pub fn run(json: bool) -> Result<(), Failure> {
             );
         }
     }
+    recorder.print();
     println!();
     println!(
         "{}",
@@ -162,6 +171,81 @@ pub fn run(json: bool) -> Result<(), Failure> {
         )
     );
     Ok(())
+}
+
+/// Whether boots are recorded here.
+struct RecorderState {
+    /// kokuin-init and the recorder are installed.
+    installed: bool,
+    /// kokuin-init is in the bootloader configuration; `None` when kokuin cannot
+    /// read that configuration.
+    enabled: Option<bool>,
+    /// Where the recording of this boot is, if it was recorded.
+    current_boot: Option<String>,
+    boots_recorded: usize,
+}
+
+impl RecorderState {
+    fn read() -> Self {
+        let system = kokuin_bootcfg::System::read();
+        Self {
+            installed: [kokuin_bootcfg::KOKUIN_INIT, enable::RECORDER]
+                .iter()
+                .all(|path| std::path::Path::new(path).is_file()),
+            enabled: system
+                .grub
+                .is_some()
+                .then(|| kokuin_bootcfg::is_enabled(&system)),
+            current_boot: boots::current().map(|b| b.dir.display().to_string()),
+            boots_recorded: boots::list().len(),
+        }
+    }
+
+    fn print(&self) {
+        let mark = |ok: bool| {
+            status_symbol(if ok {
+                SourceStatus::Ok
+            } else {
+                SourceStatus::Unavailable
+            })
+        };
+        println!();
+        println!("{}", paint(style::HEADING, "Boot recorder"));
+        println!(
+            "  {} {}",
+            mark(self.installed),
+            if self.installed {
+                format!("installed ({})", kokuin_bootcfg::KOKUIN_INIT)
+            } else {
+                format!("not installed: {} is missing", kokuin_bootcfg::KOKUIN_INIT)
+            }
+        );
+        match self.enabled {
+            Some(true) => println!("  {} enabled: the next boots are recorded", mark(true)),
+            Some(false) => println!(
+                "  {} not enabled: record the next boots with `sudo kokuin-cli enable`",
+                mark(false)
+            ),
+            None => println!(
+                "  {} enabled or not: kokuin cannot read this bootloader's configuration",
+                paint(style::DIM, "?")
+            ),
+        }
+        match &self.current_boot {
+            Some(dir) => println!("  {} this boot was recorded, in {dir}", mark(true)),
+            None => println!("  {} this boot was not recorded", mark(false)),
+        }
+        println!(
+            "  {}",
+            paint(
+                style::DIM,
+                format!(
+                    "{} boot(s) recorded: `kokuin-cli list`",
+                    self.boots_recorded
+                )
+            )
+        );
+    }
 }
 
 fn options(

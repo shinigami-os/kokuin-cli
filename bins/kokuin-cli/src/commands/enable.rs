@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The recorder kokuin-init starts (the same path as in kokuin-init).
-const RECORDER: &str = match option_env!("KOKUIN_CLI") {
+pub const RECORDER: &str = match option_env!("KOKUIN_CLI") {
     Some(path) => path,
     None => "/usr/bin/kokuin-cli",
 };

@@ -36,6 +36,8 @@ pub enum EventKind {
     Mount,
     /// A device was detected, or a driver bound to it.
     Device,
+    /// kokuin's boot recorder started or stopped watching the boot.
+    Recording,
     /// A value from a newer schema version. Never produced by this version.
     #[serde(other)]
     Unknown,

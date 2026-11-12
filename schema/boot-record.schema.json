@@ -492,6 +492,11 @@
           "const": "device"
         },
         {
+          "description": "kokuin's boot recorder started or stopped watching the boot.",
+          "type": "string",
+          "const": "recording"
+        },
+        {
           "description": "A value from a newer schema version. Never produced by this version.",
           "type": "string",
           "const": "unknown"

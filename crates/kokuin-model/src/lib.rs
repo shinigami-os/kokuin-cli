@@ -40,7 +40,7 @@ pub use timing::Confidence;
 ///
 /// A new minor version only adds things (optional fields, enum values), so a consumer
 /// written for `X.Y` can read any `X.Z`. A new major version may break consumers.
-pub const SCHEMA_VERSION: &str = "0.1";
+pub const SCHEMA_VERSION: &str = "0.2";
 
 /// Returns the JSON Schema describing a serialized [`BootRecord`].
 pub fn json_schema() -> schemars::Schema {

@@ -71,7 +71,7 @@ original data, and listed by `kokuin-cli list`. Consumers should go through
 
 ## Versioning
 
-`schema_version` is `MAJOR.MINOR`. The current version is **0.1**.
+`schema_version` is `MAJOR.MINOR`. The current version is **0.2**.
 
 - A new **minor** version only adds things: optional fields, enum values, `data` keys.
   A consumer written for `X.Y` reads any `X.Z`.
@@ -79,6 +79,11 @@ original data, and listed by `kokuin-cli list`. Consumers should go through
   refuse records you were not written for.
 - While the major version is `0`, the format is still being designed and a minor
   version may break things. This will stop at `1.0`.
+
+Changes:
+
+- **0.2**: event kind `recording` (the boot recorder starting and stopping), source
+  `proc_events` filled by the boot recorder, `capture.method` `recorder` in use.
 
 ## Conventions
 

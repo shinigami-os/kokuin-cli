@@ -106,6 +106,7 @@ const EV_EVENT_TAG: u32 = 0x6;
 const EV_S_CRTM_CONTENTS: u32 = 0x7;
 const EV_S_CRTM_VERSION: u32 = 0x8;
 const EV_CPU_MICROCODE: u32 = 0x9;
+const EV_PLATFORM_CONFIG_FLAGS: u32 = 0xa;
 const EV_IPL: u32 = 0xd;
 const EV_EFI_VARIABLE_DRIVER_CONFIG: u32 = 0x8000_0001;
 const EV_EFI_VARIABLE_BOOT: u32 = 0x8000_0002;
@@ -134,7 +135,7 @@ pub fn event_type_name(event_type: u32) -> Option<&'static str> {
         EV_S_CRTM_CONTENTS => "EV_S_CRTM_CONTENTS",
         EV_S_CRTM_VERSION => "EV_S_CRTM_VERSION",
         EV_CPU_MICROCODE => "EV_CPU_MICROCODE",
-        0xa => "EV_PLATFORM_CONFIG_FLAGS",
+        EV_PLATFORM_CONFIG_FLAGS => "EV_PLATFORM_CONFIG_FLAGS",
         0xb => "EV_TABLE_OF_DEVICES",
         0xc => "EV_COMPACT_HASH",
         EV_IPL => "EV_IPL",
@@ -353,6 +354,7 @@ fn describe_event(event: &TpmEvent, stage: Stage) -> Observation {
         }
         EV_S_CRTM_CONTENTS => "Firmware measured its first code (S-CRTM)".into(),
         EV_CPU_MICROCODE => "CPU microcode update measured".into(),
+        EV_PLATFORM_CONFIG_FLAGS => "Firmware measured its configuration flags".into(),
         EV_EFI_PLATFORM_FIRMWARE_BLOB => "Firmware measured one of its volumes".into(),
         EV_EFI_PLATFORM_FIRMWARE_BLOB2 => match blob2_description(data) {
             Some(description) => format!("Firmware measured its component {description}"),
@@ -401,6 +403,12 @@ fn describe_event(event: &TpmEvent, stage: Stage) -> Observation {
                     title
                 }
                 (None, true) => format!("Firmware measured a {what} built into the firmware"),
+                // No device path: a bootloader loaded it from memory, through the
+                // firmware (shim loading the kernel GRUB read, for example).
+                (None, false) if event.event_type == EV_EFI_BOOT_SERVICES_APPLICATION => {
+                    "Firmware measured a program a bootloader loaded from memory (usually the kernel)"
+                        .into()
+                }
                 (None, false) => format!("Firmware measured a {what}"),
             }
         }
@@ -414,8 +422,14 @@ fn describe_event(event: &TpmEvent, stage: Stage) -> Observation {
             // Linux EFI stub: tag id u32, size u32, description.
             let description = data.get(8..).map(text).unwrap_or_default();
             explain = "bootloader.efistub";
-            message = Some(description.clone());
-            format!("Kernel EFI stub measured {description}")
+            let what = match description.as_str() {
+                "LOADED_IMAGE::LoadOptions" => "its command line",
+                "Linux initrd" => "the initramfs",
+                other => other,
+            };
+            let title = format!("Kernel EFI stub measured {what}");
+            message = Some(description);
+            title
         }
         other => {
             let name =
@@ -446,8 +460,11 @@ fn describe_event(event: &TpmEvent, stage: Stage) -> Observation {
     observation
 }
 
-/// Titles for EV_IPL events, written by bootloaders (GRUB: PCR 8 and 9) and by
-/// systemd-stub (PCR 11, 12).
+/// The PCR shim measures its own key lists into.
+const SHIM_PCR: u32 = 14;
+
+/// Titles for EV_IPL events, written by bootloaders (GRUB: PCR 8 and 9, shim: PCR 14)
+/// and by systemd-stub (PCR 11, 12).
 fn describe_ipl(
     pcr: u32,
     content: &str,
@@ -465,6 +482,17 @@ fn describe_ipl(
         *explain = "bootloader.grub_commands";
         extra.push(("path", content.into()));
         format!("GRUB read the file {content}")
+    } else if pcr == SHIM_PCR {
+        *explain = "bootloader.shim";
+        match content {
+            "MokList" => "Shim measured the Machine Owner Keys (MokList)".into(),
+            "MokListX" => "Shim measured the revoked Machine Owner Keys (MokListX)".into(),
+            "MokListTrusted" => {
+                "Shim measured whether the kernel trusts the Machine Owner Keys (MokListTrusted)"
+                    .into()
+            }
+            other => format!("Shim measured {}", shorten(other, 100)),
+        }
     } else {
         *explain = "stage.bootloader";
         format!("Bootloader measured: {}", shorten(content, 100))
@@ -494,11 +522,30 @@ fn describe_variable(event: &TpmEvent) -> (String, Option<String>, &'static str)
 
     let title = match event.event_type {
         EV_EFI_VARIABLE_AUTHORITY => {
-            return (
-                format!("Secure Boot: a program was verified with a key from {name}"),
-                Some(name),
-                "firmware.secure_boot",
-            );
+            // The certificate a program was verified with, named after the list it
+            // comes from. Shim also measures its SBAT level this way.
+            let (title, explain) = match name.as_str() {
+                "SbatLevel" => (
+                    "Shim measured the SBAT level: which bootloader versions Secure Boot refuses"
+                        .to_owned(),
+                    "bootloader.shim",
+                ),
+                "Shim" => (
+                    "Secure Boot: a program was verified with the key built into shim".to_owned(),
+                    "bootloader.shim",
+                ),
+                "MokList" | "MokListRT" => (
+                    format!(
+                        "Secure Boot: a program was verified with a Machine Owner Key ({name})"
+                    ),
+                    "bootloader.shim",
+                ),
+                _ => (
+                    format!("Secure Boot: a program was verified with a key from {name}"),
+                    "firmware.secure_boot",
+                ),
+            };
+            return (title, Some(name), explain);
         }
         EV_EFI_VARIABLE_DRIVER_CONFIG if name == "SecureBoot" => {
             let state = if value.first() == Some(&1) {
@@ -581,10 +628,14 @@ fn printable(data: &[u8]) -> Option<String> {
         .then(|| text.to_owned())
 }
 
+/// The first line of `text`, cut to `max` characters, with `…` when something was
+/// left out: titles fit on one line.
 fn shorten(text: &str, max: usize) -> String {
-    match text.char_indices().nth(max) {
-        Some((cut, _)) => format!("{}…", &text[..cut]),
-        None => text.to_owned(),
+    let line = text.lines().next().unwrap_or_default().trim_end();
+    match line.char_indices().nth(max) {
+        Some((cut, _)) => format!("{}…", &line[..cut]),
+        None if line.len() < text.trim_end().len() => format!("{line} …"),
+        None => line.to_owned(),
     }
 }
 

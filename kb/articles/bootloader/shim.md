@@ -6,6 +6,10 @@ related = ["firmware.secure_boot", "bootloader.grub"]
 [[references]]
 title = "shim source code"
 url = "https://github.com/rhboot/shim"
+
+[[references]]
+title = "SBAT: UEFI Secure Boot Advanced Targeting"
+url = "https://github.com/rhboot/shim/blob/main/SBAT.md"
 +++
 
 Most PCs only trust Microsoft keys for Secure Boot. Distributions cannot have every
@@ -19,3 +23,15 @@ managed with `mokutil`).
 
 When the boot entry points to `shimx64.efi`, the boot chain has one more step:
 firmware → shim → GRUB → kernel.
+
+## What shim leaves in the TPM log
+
+With a TPM, shim measures what it decides with, so the log shows it:
+
+- **MokList**, **MokListX**: the Machine Owner Keys, and the ones revoked.
+- **MokListTrusted**: whether the kernel also trusts the Machine Owner Keys.
+- **SbatLevel**: the SBAT level. Each bootloader build carries a generation
+  number per component (`grub,4`); shim refuses any program older than this level.
+  Revoking a vulnerable GRUB this way avoids adding every old build to `dbx`.
+- The certificate each program was verified with: the one built into shim, or a
+  Machine Owner Key.

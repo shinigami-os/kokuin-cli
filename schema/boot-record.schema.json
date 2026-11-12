@@ -673,7 +673,7 @@
       ]
     },
     "MilestoneKind": {
-      "description": "A key moment of the boot. Each kind appears at most once in a record.",
+      "description": "A key moment of the boot, in boot order. Each kind appears at most once in a\nrecord.",
       "oneOf": [
         {
           "description": "The firmware starts running, right after the CPU leaves reset (FPDT `ResetEnd`).",

@@ -146,6 +146,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kokuin-analyze"
+version = "0.1.0"
+dependencies = [
+ "kokuin-kb",
+ "kokuin-model",
+ "kokuin-sources",
+ "serde_json",
+]
+
+[[package]]
 name = "kokuin-kb"
 version = "0.1.0"
 dependencies = [

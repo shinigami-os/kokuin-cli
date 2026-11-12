@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Confidence, EventId};
 
-/// A key moment of the boot. Each kind appears at most once in a record.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+/// A key moment of the boot, in boot order. Each kind appears at most once in a
+/// record.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum MilestoneKind {
     /// The firmware starts running, right after the CPU leaves reset (FPDT `ResetEnd`).

@@ -18,6 +18,7 @@ pub mod fpdt;
 pub mod init;
 pub mod kconfig;
 pub mod kmsg;
+pub mod proc_events;
 pub mod procfs;
 mod report;
 pub mod snapshot;
@@ -197,6 +198,7 @@ pub fn sources(init: Option<&str>) -> Vec<Box<dyn Source>> {
         Box::new(tpm::TpmEventLog),
         Box::new(efivars::EfiVars),
         Box::new(kmsg::Kmsg),
+        Box::new(proc_events::ProcEvents),
         Box::new(procfs::Procfs),
     ];
     if let Some(adapter) = init.and_then(init::adapter) {

@@ -42,6 +42,28 @@ on another machine, or with newer rules (`kokuin-cli show DIR`):
 A snapshot holds the command lines of every running process: look at it before
 sharing it. Its layout has its own version (`format`), separate from the record's.
 
+### Boot recorder files
+
+While a recorded boot runs, the recorder (`kokuin-cli record --boot`) watches it.
+When it stops, it publishes what it saw in `/run/kokuin/recorder/`, where the
+sources read it, so a raw snapshot of that boot includes it:
+
+- `kmsg`: the whole kernel log of the boot, in the `/dev/kmsg` format.
+- `processes.jsonl`: one JSON object per line, `event` telling which:
+
+| `event` | Fields | Meaning |
+|---|---|---|
+| `started` | `t_ns`, `method` (`proc_events` or `polling`) | The recorder started watching. With `polling`, times are approximate and very short processes are missing. |
+| `running` | `start_ns`, `pid`, `ppid`, details | A process already running when the recorder started. |
+| `fork` | `t_ns`, `pid`, `ppid` | A process was created. It runs its parent's program until it runs another. |
+| `exec` | `t_ns`, `pid`, details | A process started another program. |
+| `exit` | `t_ns`, `pid`, `exit_code` or `exit_signal` | A process ended. |
+| `lost` | `t_ns` | The kernel dropped events. |
+| `stopped` | `t_ns`, `reason` (an `end_reason`) | The recorder stopped. |
+
+The details are `comm`, `cmdline`, `exe`, `uid` and `cgroup`, all optional: a
+process can exit before the recorder reads them. Times are on the boot clock.
+
 Planned: records saved for each boot by the boot recorder, in
 `/var/lib/kokuin/boots/<boot_id>/record.json` next to a `raw/` directory with the
 original data, and listed by `kokuin-cli list`. Consumers should go through
@@ -177,8 +199,8 @@ to the event the milestone was detected from, when there is one.
 | `tpm_eventlog` | TPM measured-boot event log (`/sys/kernel/security/tpm0/binary_bios_measurements`) | `pcr`, `event_type`, `path`, `variable` |
 | `efivars` | EFI variables (`/sys/firmware/efi/efivars`) | `variable`, `value`, `description`, `path` |
 | `dmi` | SMBIOS/DMI tables (`/sys/class/dmi/id`) | — |
-| `kmsg` | Kernel log (`/dev/kmsg`) | `seq`, `facility`, plus parsed values (`driver`, `device`, `fstype`...) |
-| `proc_events` | Live process events recorded during boot (netlink process connector) | `pid`, `exe` |
+| `kmsg` | Kernel log (`/dev/kmsg`, or the boot recorder's copy) | `seq`, `facility`, plus parsed values (`driver`, `device`, `fstype`...) |
+| `proc_events` | Processes seen by the boot recorder (`/run/kokuin/recorder/processes.jsonl`): it gives `processes`, including those that exited | — |
 | `procfs` | Processes still running at capture time (`/proc`), for post-hoc records | `pid` |
 | `runit`, `systemd`, `openrc` | The init system's own view of services | `service`, `state` |
 

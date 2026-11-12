@@ -41,21 +41,28 @@ impl Source for Procfs {
             .collect();
         processes.sort_by_key(|p| (p.start_ns, p.pid));
 
-        let reason = format!(
-            "only the {} processes still running are visible: those that already exited left no trace \
-             (record a boot to see them all)",
-            processes.len()
-        );
+        // When the boot was recorded, the recorder saw the processes that exited.
+        let report = if ctx.exists(crate::proc_events::PATH) {
+            report::ok(self.id(), EXPLAIN)
+        } else {
+            let reason = format!(
+                "only the {} processes still running are visible: those that already exited left \
+                 no trace (record a boot to see them all)",
+                processes.len()
+            );
+            report::with_status(self.id(), EXPLAIN, SourceStatus::Partial, Some(reason))
+        };
         SourceOutput {
-            report: report::with_status(self.id(), EXPLAIN, SourceStatus::Partial, Some(reason)),
+            report,
             observations: Vec::new(),
             processes,
         }
     }
 }
 
-/// Reads one process; `None` for kernel threads and processes that vanished.
-fn read_process(ctx: &Context, pid: u32, ticks_per_second: u64) -> Option<ProcessInfo> {
+/// Reads one process from `/proc`; `None` for kernel threads and processes that
+/// vanished. `ticks_per_second` is [`Context::clock_ticks_per_second`].
+pub fn read_process(ctx: &Context, pid: u32, ticks_per_second: u64) -> Option<ProcessInfo> {
     let stat = parse_stat(&ctx.read_text(format!("/proc/{pid}/stat")).ok()?)?;
     if stat.flags & KERNEL_THREAD != 0 {
         return None;

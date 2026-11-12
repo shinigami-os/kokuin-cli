@@ -10,6 +10,9 @@ use kokuin_model::{Confidence, EventKind, LogLevel, SourceStatus};
 use crate::{Context, Observation, Source, SourceOutput, report};
 
 const PATH: &str = "/dev/kmsg";
+/// The whole kernel log of the boot, kept by the boot recorder before the kernel's
+/// buffer could wrap (same format as `/dev/kmsg`).
+pub const RECORDED_PATH: &str = "/run/kokuin/recorder/kmsg";
 const EXPLAIN: &str = "kernel.kmsg";
 
 /// The kernel log.
@@ -46,9 +49,26 @@ impl Source for Kmsg {
     }
 
     fn collect(&self, ctx: &Context) -> SourceOutput {
-        let text = match ctx.read_device(PATH) {
-            Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
-            Err(err) => {
+        let recorded = ctx
+            .read_bytes(RECORDED_PATH)
+            .map(|bytes| parse(&String::from_utf8_lossy(&bytes)))
+            .ok();
+        let live = ctx
+            .read_device(PATH)
+            .map(|bytes| parse(&String::from_utf8_lossy(&bytes)));
+        let records = match (recorded, live) {
+            // The recorder's copy, then what the kernel logged after it stopped.
+            (Some(mut records), live) => {
+                let last = records.last().map(|r| r.seq);
+                let newer = live
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|r| last.is_none_or(|last| r.seq > last));
+                records.extend(newer);
+                records
+            }
+            (None, Ok(records)) => records,
+            (None, Err(err)) => {
                 let mut report = report::io_error(self.id(), EXPLAIN, PATH, &err);
                 let restricted = ctx
                     .read_text("/proc/sys/kernel/dmesg_restrict")
@@ -61,7 +81,6 @@ impl Source for Kmsg {
                 return SourceOutput::empty(report);
             }
         };
-        let records = parse(&text);
         let report = match records.first().map(|r| r.seq) {
             None => report::with_status(
                 self.id(),
@@ -237,6 +256,28 @@ mod tests {
         assert_eq!(found[2].data["subsystem"], "drm");
         assert_eq!(found[3].data["facility"], "daemon");
         assert_eq!(found[0].level, Some(LogLevel::Notice));
+    }
+
+    #[test]
+    fn prefers_the_recorded_log_and_adds_newer_messages() {
+        let root = std::env::temp_dir().join(format!("kokuin-kmsg-rec-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("dev")).unwrap();
+        std::fs::create_dir_all(root.join("run/kokuin/recorder")).unwrap();
+        std::fs::write(
+            root.join("run/kokuin/recorder/kmsg"),
+            "6,0,0,-;Linux version 6.18\n6,1,10,-;second\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("dev/kmsg"), "6,1,10,-;second\n6,2,90,-;later\n").unwrap();
+        let output = Kmsg.collect(&Context::with_root(&root));
+        std::fs::remove_dir_all(&root).unwrap();
+        assert_eq!(output.report.status, SourceStatus::Ok);
+        let titles: Vec<_> = output
+            .observations
+            .iter()
+            .map(|o| o.title.as_str())
+            .collect();
+        assert_eq!(titles, ["Linux version 6.18", "second", "later"]);
     }
 
     #[test]

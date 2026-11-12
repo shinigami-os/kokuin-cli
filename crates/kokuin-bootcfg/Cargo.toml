@@ -1,0 +1,13 @@
+[package]
+name = "kokuin-bootcfg"
+version.workspace = true
+description = "Adds and removes kokuin's kernel parameters in the bootloader configuration (GRUB, or instructions to do it by hand)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

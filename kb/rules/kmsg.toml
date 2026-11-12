@@ -35,7 +35,8 @@ explain = "firmware.uefi"
 tag = "efi_info"
 
 [[rule]]
-match = '^secureboot: Secure boot (?P<state>\w+)'
+# With or without the "secureboot: " prefix, depending on the kernel (Ubuntu 26.04: with, Alpine 3.24: without).
+match = '^(?:secureboot: )?Secure boot (?P<state>\w+)'
 title = "Secure Boot is {state}"
 explain = "firmware.secure_boot"
 

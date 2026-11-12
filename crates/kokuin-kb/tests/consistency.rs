@@ -87,6 +87,8 @@ fn rules_recognize_real_messages() {
             "[drm] Initialized virtio_gpu 0.1.0 for virtio0 on minor 0",
             "Graphics driver virtio_gpu is ready",
         ),
+        ("Secure boot disabled", "Secure Boot is disabled"),
+        ("secureboot: Secure boot enabled", "Secure Boot is enabled"),
         (
             "Run /sbin/init as init process",
             "Kernel started the first process: /sbin/init",

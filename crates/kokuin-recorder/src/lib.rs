@@ -22,6 +22,7 @@ use kokuin_model::EndReason;
 use kokuin_sources::{
     Context, ProcessInfo,
     proc_events::{Line, WatchMethod},
+    procfs,
 };
 use rustix::time::{ClockId, clock_gettime};
 
@@ -75,6 +76,7 @@ pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
     let mut lines = vec![Line::Started {
         t_ns: now_ns(),
         method,
+        handover_ns: handover_ns(&ctx),
     }];
     let running = processes::running(&ctx);
     let listed_at = now_ns();
@@ -110,6 +112,16 @@ pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
         kmsg: kmsg.map(|k| k.records()).unwrap_or_default(),
         end_reason,
     }
+}
+
+/// When kokuin-init handed over to the real init, if it started this recorder: it
+/// does so right after starting it, so the recorder's own start time tells.
+fn handover_ns(ctx: &Context) -> Option<i64> {
+    if !rustix::process::getppid().is_some_and(|parent| parent.is_init()) {
+        return None;
+    }
+    let own = ctx.own_pid()?;
+    procfs::read_process(ctx, own, ctx.clock_ticks_per_second())?.start_ns
 }
 
 /// Tells the watch about a program, with its role in the knowledge base.

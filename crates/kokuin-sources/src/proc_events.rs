@@ -29,6 +29,11 @@ pub enum Line {
         t_ns: i64,
         /// How processes are watched.
         method: WatchMethod,
+        /// When kokuin-init handed over to the real init: it starts the recorder
+        /// right before, so this is the recorder's own start (10 ms precision).
+        /// Missing when the recorder was not started by kokuin-init.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        handover_ns: Option<i64>,
     },
     /// A process that was already running when the recorder started.
     Running {
@@ -217,6 +222,18 @@ impl Source for ProcEvents {
 /// The recorder starting and stopping, on the timeline.
 fn recording_observations(replay: &Replay) -> Vec<Observation> {
     let mut observations = Vec::new();
+    if let Some(t_ns) = replay.handover_ns {
+        observations.push(
+            Observation::new(
+                EventKind::Recording,
+                "kokuin-init started the recorder and handed over to the init system",
+                Some(t_ns),
+                Confidence::Approximate,
+            )
+            .explained_by("init.pid1")
+            .marks(MilestoneKind::InitStart),
+        );
+    }
     if let Some((t_ns, method)) = replay.started {
         let how = match method {
             WatchMethod::ProcEvents => "with the kernel's process events",
@@ -263,6 +280,8 @@ pub struct Replay {
     pub processes: Vec<ProcessInfo>,
     /// When the recorder started, and how it watched processes.
     pub started: Option<(i64, WatchMethod)>,
+    /// When kokuin-init handed over to the real init.
+    pub handover_ns: Option<i64>,
     /// Whether events were lost.
     pub lost: bool,
     /// When and why the recorder stopped.
@@ -279,8 +298,13 @@ pub fn replay(lines: &[Line]) -> Replay {
 
     for line in lines {
         match line {
-            Line::Started { t_ns, method } => {
+            Line::Started {
+                t_ns,
+                method,
+                handover_ns,
+            } => {
                 replay.started = Some((*t_ns, *method));
+                replay.handover_ns = *handover_ns;
                 if *method == WatchMethod::Polling {
                     confidence = Confidence::Approximate;
                 }
@@ -382,7 +406,7 @@ mod tests {
     use super::*;
 
     const SAMPLE: &str = r#"
-{"event":"started","t_ns":1500000000,"method":"proc_events"}
+{"event":"started","t_ns":1500000000,"method":"proc_events","handover_ns":1490000000}
 {"event":"running","start_ns":0,"pid":1,"comm":"init","cmdline":["/sbin/init"]}
 {"event":"fork","t_ns":1600000000,"pid":200,"ppid":1}
 {"event":"exec","t_ns":1600500000,"pid":200,"comm":"udevd","cmdline":["/sbin/udevd","--daemon"],"exe":"/sbin/udevd","uid":0}
@@ -409,6 +433,7 @@ mod tests {
             replay.started,
             Some((1_500_000_000, WatchMethod::ProcEvents))
         );
+        assert_eq!(replay.handover_ns, Some(1_490_000_000));
         assert_eq!(
             replay.stopped,
             Some((20_000_000_000, EndReason::SessionReady))

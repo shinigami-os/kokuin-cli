@@ -53,7 +53,7 @@ sources read it, so a raw snapshot of that boot includes it:
 
 | `event` | Fields | Meaning |
 |---|---|---|
-| `started` | `t_ns`, `method` (`proc_events` or `polling`) | The recorder started watching. With `polling`, times are approximate and very short processes are missing. |
+| `started` | `t_ns`, `method` (`proc_events` or `polling`), `handover_ns` | The recorder started watching. With `polling`, times are approximate and very short processes are missing. `handover_ns`: when kokuin-init handed over to the real init (it starts the recorder just before), which marks `init_start`. |
 | `running` | `start_ns`, `pid`, `ppid`, details | A process already running when the recorder started. |
 | `fork` | `t_ns`, `pid`, `ppid` | A process was created. It runs its parent's program until it runs another. |
 | `exec` | `t_ns`, `pid`, details | A process started another program. |

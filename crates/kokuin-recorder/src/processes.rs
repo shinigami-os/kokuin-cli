@@ -297,6 +297,33 @@ mod tests {
     }
 
     #[test]
+    fn polling_sees_a_process_start_and_end() {
+        let ctx = Context::live();
+        let mut poller = Poller::new(ctx.clone(), &running(&ctx));
+        let mut child = std::process::Command::new("sleep")
+            .arg("5")
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        let started = poller.poll(1);
+        child.kill().unwrap();
+        child.wait().unwrap();
+        let ended = poller.poll(2);
+
+        let exec = started.iter().find_map(|(line, _)| match line {
+            Line::Exec {
+                pid: p, details, ..
+            } if *p == pid => Some(details),
+            _ => None,
+        });
+        assert_eq!(exec.and_then(|d| d.comm.as_deref()), Some("sleep"));
+        assert!(ended.iter().any(|(line, _)| matches!(
+            line,
+            Line::Exit { pid: p, t_ns: 2, .. } if *p == pid
+        )));
+    }
+
+    #[test]
     fn running_skips_the_recorder_itself() {
         let processes = running(&Context::live());
         assert!(!processes.iter().any(|p| p.pid == std::process::id()));

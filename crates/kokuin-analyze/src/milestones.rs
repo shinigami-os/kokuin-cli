@@ -117,7 +117,7 @@ pub(crate) fn detect(items: &[Item], processes: &Processes, kmsg_available: bool
             candidates.push(Found {
                 kind: MilestoneKind::SessionStart,
                 t_ns,
-                confidence: Confidence::Approximate,
+                confidence: item.obs.confidence,
                 item: Some(item.order),
             });
         }

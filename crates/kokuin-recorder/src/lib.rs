@@ -1,0 +1,149 @@
+//! Records a boot while it happens.
+//!
+//! Started very early by `kokuin-init` (as `kokuin-cli record --boot`), the recorder
+//! notes every process created, every program run and every exit, keeps the whole
+//! kernel log, and stops once the desktop is ready and the system had time to settle
+//! ([`Watch`]). What it saw becomes the `proc_events` and `kmsg` sources of the boot
+//! record.
+//!
+//! Processes are followed with the kernel's process events ([`cn_proc`]), or by
+//! comparing `/proc` listings when the kernel lacks them.
+
+pub mod cn_proc;
+pub mod config;
+pub mod kmsg;
+pub mod processes;
+pub mod watch;
+
+use std::{thread, time::Duration};
+
+use kokuin_kb::Kb;
+use kokuin_model::EndReason;
+use kokuin_sources::{
+    Context, ProcessInfo,
+    proc_events::{Line, WatchMethod},
+};
+use rustix::time::{ClockId, clock_gettime};
+
+pub use crate::watch::Watch;
+use crate::{
+    cn_proc::{Listener, Received},
+    config::RecorderConfig,
+    kmsg::KmsgFollower,
+    processes::{Poller, Seen, Tracker},
+};
+
+/// How long to wait for the kernel to confirm the subscription to process events.
+const SUBSCRIPTION_WAIT: Duration = Duration::from_millis(500);
+/// How long to wait for process events before checking whether to stop.
+const EVENT_WAIT: Duration = Duration::from_millis(100);
+/// Interval between two `/proc` listings without process events.
+const POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// What a recording saw.
+#[derive(Debug, Clone)]
+pub struct Recording {
+    /// The lines of `processes.jsonl`.
+    pub lines: Vec<Line>,
+    /// The kernel log, in the `/dev/kmsg` format. Empty if it could not be read.
+    pub kmsg: Vec<u8>,
+    /// Why it stopped.
+    pub end_reason: EndReason,
+}
+
+/// The boot clock: ns since the kernel started (`CLOCK_MONOTONIC`, the clock of
+/// process events and of the kernel log).
+pub fn now_ns() -> i64 {
+    let t = clock_gettime(ClockId::Monotonic);
+    t.tv_sec * 1_000_000_000 + t.tv_nsec
+}
+
+/// Records until the desktop is ready and settled, or until the timeout.
+pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
+    let ctx = Context::live();
+    let kmsg = KmsgFollower::start().ok();
+    let seconds = |s: u64| i64::try_from(s.saturating_mul(1_000_000_000)).unwrap_or(i64::MAX);
+    let mut watch = Watch::new(seconds(config.settle_secs), seconds(config.timeout_secs));
+
+    // Subscribe before listing what runs, so nothing falls in between.
+    let listener = Listener::subscribe(SUBSCRIPTION_WAIT).ok();
+    let method = if listener.is_some() {
+        WatchMethod::ProcEvents
+    } else {
+        WatchMethod::Polling
+    };
+    let mut lines = vec![Line::Started {
+        t_ns: now_ns(),
+        method,
+    }];
+    let running = processes::running(&ctx);
+    let listed_at = now_ns();
+    for info in &running {
+        observe(&mut watch, kb, info.start_ns.unwrap_or(listed_at), info);
+        lines.push(processes::running_line(info));
+    }
+    let mut watcher = match listener {
+        Some(mut listener) => {
+            let _ = listener.set_wait(EVENT_WAIT);
+            Watcher::Events(listener, Tracker::new(ctx.clone(), &running, listed_at))
+        }
+        None => Watcher::Polling(Poller::new(ctx.clone(), &running)),
+    };
+
+    let end_reason = loop {
+        if let Some(reason) = watch.end_reason(now_ns()) {
+            break reason;
+        }
+        for (line, info) in watcher.next() {
+            if let (Some(info), Line::Exec { t_ns, .. }) = (&info, &line) {
+                observe(&mut watch, kb, *t_ns, info);
+            }
+            lines.push(line);
+        }
+    };
+    lines.push(Line::Stopped {
+        t_ns: now_ns(),
+        reason: end_reason,
+    });
+    Recording {
+        lines,
+        kmsg: kmsg.map(|k| k.records()).unwrap_or_default(),
+        end_reason,
+    }
+}
+
+/// Tells the watch about a program, with its role in the knowledge base.
+fn observe(watch: &mut Watch, kb: &Kb, t_ns: i64, info: &ProcessInfo) {
+    let role = kb.match_process(info.names()).map(|rule| rule.role);
+    watch.observe(t_ns, role, info.uid);
+}
+
+/// Where process changes come from.
+enum Watcher {
+    Events(Listener, Tracker),
+    Polling(Poller),
+}
+
+impl Watcher {
+    /// The next changes. Returns after a short wait even if nothing happened.
+    fn next(&mut self) -> Vec<Seen> {
+        match self {
+            Watcher::Events(listener, tracker) => match listener.receive() {
+                Ok(Received::Events(events)) => {
+                    events.into_iter().filter_map(|e| tracker.line(e)).collect()
+                }
+                Ok(Received::Lost) => vec![(Line::Lost { t_ns: now_ns() }, None)],
+                Ok(Received::Nothing) => Vec::new(),
+                // The socket broke: wait before stopping at the deadline.
+                Err(_) => {
+                    thread::sleep(EVENT_WAIT);
+                    Vec::new()
+                }
+            },
+            Watcher::Polling(poller) => {
+                thread::sleep(POLL_INTERVAL);
+                poller.poll(now_ns())
+            }
+        }
+    }
+}

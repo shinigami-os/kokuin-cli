@@ -1,0 +1,19 @@
+[package]
+name = "kokuin-recorder"
+version.workspace = true
+description = "Records a boot while it happens: every process and the whole kernel log, until the desktop is ready"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+kokuin-kb = { version = "0.1.0", path = "../kokuin-kb" }
+kokuin-model = { version = "0.1.0", path = "../kokuin-model" }
+kokuin-sources = { version = "0.1.0", path = "../kokuin-sources" }
+rustix = { version = "1.1.6", features = ["net", "time", "process"] }
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.2.1"
+
+[lints]
+workspace = true

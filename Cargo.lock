@@ -301,6 +301,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kokuin-recorder"
+version = "0.1.0"
+dependencies = [
+ "kokuin-kb",
+ "kokuin-model",
+ "kokuin-sources",
+ "rustix",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "kokuin-sources"
 version = "0.1.0"
 dependencies = [

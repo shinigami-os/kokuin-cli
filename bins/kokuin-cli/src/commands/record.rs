@@ -17,7 +17,11 @@ use kokuin_recorder::{
     Recording,
     config::{self, Config},
 };
-use kokuin_sources::{Context, kmsg, proc_events};
+use kokuin_sources::{
+    Context,
+    clock::{self, ClockFile},
+    kmsg, proc_events,
+};
 
 use crate::{Failure, boots, records};
 
@@ -74,6 +78,12 @@ fn publish(recording: &Recording) -> Result<(), Failure> {
     fs::write(proc_events::PATH, lines)?;
     if !recording.kmsg.is_empty() {
         fs::write(kmsg::RECORDED_PATH, &recording.kmsg)?;
+    }
+    if !recording.clock.is_empty() {
+        let file = ClockFile {
+            samples: recording.clock.clone(),
+        };
+        fs::write(clock::PATH, serde_json::to_string(&file)? + "\n")?;
     }
     Ok(())
 }

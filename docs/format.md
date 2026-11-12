@@ -49,6 +49,13 @@ When it stops, it publishes what it saw in `/run/kokuin/recorder/`, where the
 sources read it, so a raw snapshot of that boot includes it:
 
 - `kmsg`: the whole kernel log of the boot, in the `/dev/kmsg` format.
+- `clock.json`: the gap between the kernel log's clock and the boot clock, measured
+  about once a second (`samples`: `kmsg_ns`, `offset_ns`). The kernel stamps its log
+  with the scheduler clock; everything else uses `CLOCK_MONOTONIC`. They usually
+  agree, but a virtual machine or a time daemon (chrony slews the monotonic clock)
+  can make them drift apart by a fraction of a second. With this file, kernel
+  messages are moved onto the boot clock, and keep their original time in
+  `data.kmsg_ns`. Boots that were not recorded have no such measure.
 - `processes.jsonl`: one JSON object per line, `event` telling which:
 
 | `event` | Fields | Meaning |

@@ -12,6 +12,7 @@
 //! system, a fixture directory laid out like one, or a [`snapshot`] saved earlier.
 
 mod binary;
+pub mod clock;
 mod context;
 pub mod efivars;
 pub mod fpdt;

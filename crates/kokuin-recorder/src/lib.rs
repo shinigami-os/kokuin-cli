@@ -21,6 +21,7 @@ use kokuin_kb::Kb;
 use kokuin_model::EndReason;
 use kokuin_sources::{
     Context, ProcessInfo,
+    clock::ClockSample,
     proc_events::{Line, WatchMethod},
     procfs,
 };
@@ -48,6 +49,8 @@ pub struct Recording {
     pub lines: Vec<Line>,
     /// The kernel log, in the `/dev/kmsg` format. Empty if it could not be read.
     pub kmsg: Vec<u8>,
+    /// The measured gaps between the kernel log's clock and the boot clock.
+    pub clock: Vec<ClockSample>,
     /// Why it stopped.
     pub end_reason: EndReason,
 }
@@ -109,7 +112,11 @@ pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
     });
     Recording {
         lines,
-        kmsg: kmsg.map(|k| k.records()).unwrap_or_default(),
+        kmsg: kmsg.as_ref().map(KmsgFollower::records).unwrap_or_default(),
+        clock: kmsg
+            .as_ref()
+            .map(KmsgFollower::clock_samples)
+            .unwrap_or_default(),
         end_reason,
     }
 }

@@ -7,7 +7,7 @@ use std::io;
 
 use kokuin_model::{Confidence, EventKind, LogLevel, SourceStatus};
 
-use crate::{Context, Observation, Source, SourceOutput, report};
+use crate::{Context, Observation, Source, SourceOutput, clock::KmsgClock, report};
 
 const PATH: &str = "/dev/kmsg";
 /// The whole kernel log of the boot, kept by the boot recorder before the kernel's
@@ -99,7 +99,15 @@ impl Source for Kmsg {
                 )),
             ),
         };
-        let observations = records.into_iter().map(observation).collect();
+        let mut observations: Vec<Observation> = records.into_iter().map(observation).collect();
+        if let Some(clock) = KmsgClock::load(ctx) {
+            for observation in &mut observations {
+                if let Some(t_ns) = observation.t_ns {
+                    observation.t_ns = Some(clock.to_boot_ns(t_ns));
+                    observation.data.insert("kmsg_ns".into(), t_ns.into());
+                }
+            }
+        }
         SourceOutput {
             report,
             observations,

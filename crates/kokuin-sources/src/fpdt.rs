@@ -58,6 +58,21 @@ const FIELDS: [Field; 5] = [
     },
 ];
 
+/// Where the kernel exposes the raw ACPI tables the firmware provided.
+const ACPI_TABLES: &str = "/sys/firmware/acpi/tables";
+
+/// Why the FPDT timestamps are missing: the firmware has no such table, or the kernel
+/// does not expose it.
+fn missing_table_reason(ctx: &Context) -> &'static str {
+    if !ctx.exists(ACPI_TABLES) {
+        "the firmware provides no ACPI tables, so no FPDT"
+    } else if ctx.exists(format!("{ACPI_TABLES}/FPDT")) {
+        "the firmware has an FPDT table but the kernel does not expose it (needs CONFIG_ACPI_FPDT)"
+    } else {
+        "the firmware does not provide an FPDT table: it records no boot timestamps"
+    }
+}
+
 impl Source for Fpdt {
     fn id(&self) -> &'static str {
         "fpdt"
@@ -80,11 +95,7 @@ impl Source for Fpdt {
                 Err(err) => {
                     let mut report = report::io_error(self.id(), EXPLAIN, &path, &err);
                     if !ctx.exists(DIR) {
-                        report.reason = Some(
-                            "the firmware has no FPDT table, or the kernel does not expose it \
-                             (needs CONFIG_ACPI_FPDT)"
-                                .into(),
-                        );
+                        report.reason = Some(missing_table_reason(ctx).into());
                     }
                     return SourceOutput::empty(report);
                 }

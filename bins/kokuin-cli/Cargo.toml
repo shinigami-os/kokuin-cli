@@ -17,7 +17,7 @@ kokuin-model = { version = "0.1.0", path = "../../crates/kokuin-model" }
 kokuin-recorder = { version = "0.1.0", path = "../../crates/kokuin-recorder" }
 kokuin-sources = { version = "0.1.0", path = "../../crates/kokuin-sources" }
 regex = "1.13.1"
-rustix = { version = "1.1.6", features = ["process"] }
+rustix = { version = "1.1.6", features = ["fs", "process"] }
 serde = "1.0.229"
 serde_json = "1.0.154"
 

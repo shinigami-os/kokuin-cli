@@ -37,6 +37,9 @@ pub fn run() -> Result<(), Failure> {
 fn record() -> Result<String, Failure> {
     // Leave the session of init: its signals are not for the recorder.
     let _ = rustix::process::setsid();
+    // The kernel starts init with no file mode mask: without one, everything saved
+    // would be writable by everyone.
+    rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o022));
     wait_for(Path::new("/proc/self/stat"), PROC_WAIT)?;
     let config = Config::load(Path::new(config::PATH)).unwrap_or_else(|err| {
         log(4, &format!("{err}; using the default settings"));
@@ -88,7 +91,9 @@ fn wait_for(path: &Path, limit: Duration) -> Result<(), Failure> {
 
 /// Writes a message to the kernel log, with a syslog level (4 warning, 5 notice).
 fn log(level: u8, message: &str) {
+    // One write is one message: build the line first.
+    let line = format!("<{level}>kokuin: {message}\n");
     if let Ok(mut device) = fs::OpenOptions::new().write(true).open("/dev/kmsg") {
-        let _ = writeln!(device, "<{level}>kokuin: {message}");
+        let _ = device.write_all(line.as_bytes());
     }
 }

@@ -1,0 +1,20 @@
+[package]
+name = "kokuin-kb"
+version.workspace = true
+description = "Knowledge base of kokuin: explanations of each boot step and the rules that recognize them"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+kokuin-model = { version = "0.1.0", path = "../kokuin-model" }
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.2.1"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json = "1.0.154"

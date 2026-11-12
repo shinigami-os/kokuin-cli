@@ -1,0 +1,67 @@
+# Rules recognizing programs by name (command name or executable file name).
+#
+# The first rule listing one of the program's names wins. Fields:
+#   names    Program names.
+#   role     service_supervisor, device_manager, login, display_manager,
+#            compositor, session_shell, or other (only explained).
+#   explain  Id of the article explaining the program.
+#
+# Roles mark milestones: service_supervisor -> services_start,
+# display_manager -> display_manager_start; for processes of a normal user,
+# compositor -> compositor_start and session_shell -> session_ready.
+
+[[process]]
+names = ["runit", "runit-init"]
+role = "other"
+explain = "init.runit"
+
+[[process]]
+names = ["runsvdir"]
+role = "service_supervisor"
+explain = "init.runit_stage2"
+
+[[process]]
+names = ["runsv"]
+role = "other"
+explain = "init.runit"
+
+[[process]]
+names = ["systemd"]
+role = "other"
+explain = "init.systemd"
+
+[[process]]
+names = ["openrc", "openrc-init", "openrc-run", "supervise-daemon"]
+role = "other"
+explain = "init.openrc"
+
+[[process]]
+names = ["udevd", "systemd-udevd"]
+role = "device_manager"
+explain = "init.udev"
+
+[[process]]
+names = ["agetty", "getty", "mingetty", "login"]
+role = "login"
+explain = "init.getty"
+
+[[process]]
+names = ["greetd", "gdm", "gdm3", "sddm", "lightdm", "ly", "lxdm", "xdm", "emptty", "kira-greetd"]
+role = "display_manager"
+explain = "graphics.display_manager"
+
+[[process]]
+names = [
+    "sway", "Hyprland", "hyprland", "kwin_wayland", "kwin_x11", "gnome-shell", "mutter",
+    "weston", "labwc", "river", "niri", "wayfire", "cage", "cosmic-comp", "Xorg", "X", "Xwayland",
+]
+role = "compositor"
+explain = "session.compositor"
+
+[[process]]
+names = [
+    "waybar", "quickshell", "qs", "plasmashell", "xfce4-panel", "lxqt-panel", "mate-panel",
+    "cosmic-panel", "ironbar", "eww", "ags", "polybar", "swaybar",
+]
+role = "session_shell"
+explain = "session.shell"

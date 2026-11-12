@@ -1,0 +1,186 @@
+# Rules recognizing kernel log messages (/dev/kmsg, what `dmesg` shows).
+#
+# The first rule whose `match` regex matches a message wins. Fields:
+#   match        Rust regex (https://docs.rs/regex) matched against the message.
+#                Named groups (?P<name>...) can be used in `title` as {name}.
+#   title        Short human-readable title. Default: the message itself.
+#   kind         Event kind (log, device, mount, initcall...). Default: log.
+#   explain      Id of the article explaining the message (kb/articles/<area>/<topic>.md).
+#   milestone    Milestone marked by the first message matching this rule.
+#   tag          Fact used by the analysis: efi_info, initramfs_unpack, run_init,
+#                disk_mount, switch_root.
+#   duration_us  Named group holding a duration in microseconds.
+
+# --- Kernel start ---------------------------------------------------------------
+
+[[rule]]
+match = '^Linux version (?P<release>\S+)'
+title = "Linux {release} started"
+explain = "kernel.start"
+
+[[rule]]
+match = '^(Kernel )?[Cc]ommand line: (?P<cmdline>.*)$'
+title = "Kernel command line: {cmdline}"
+explain = "kernel.cmdline"
+
+[[rule]]
+match = '^BIOS-provided physical RAM map'
+title = "Firmware gave the kernel the map of physical memory"
+explain = "kernel.memory_map"
+
+[[rule]]
+match = '^efi: EFI v(?P<spec>[0-9.]+) by (?P<vendor>.+)$'
+title = "UEFI firmware by {vendor}, UEFI specification {spec}"
+explain = "firmware.uefi"
+tag = "efi_info"
+
+[[rule]]
+match = '^secureboot: Secure boot (?P<state>\w+)'
+title = "Secure Boot is {state}"
+explain = "firmware.secure_boot"
+
+[[rule]]
+match = '^DMI: (?P<machine>.+)$'
+title = "Machine: {machine}"
+explain = "firmware.dmi"
+
+[[rule]]
+match = '^ACPI: Interpreter enabled'
+title = "ACPI interpreter enabled: the kernel can now read the firmware's hardware description"
+explain = "kernel.acpi"
+
+[[rule]]
+match = '^ACPI'
+explain = "kernel.acpi"
+
+[[rule]]
+match = '^smp: Brought up (?P<nodes>\d+) nodes?, (?P<cpus>\d+) CPUs?'
+title = "All {cpus} CPUs are running"
+explain = "kernel.smp"
+
+[[rule]]
+match = '^smpboot: '
+explain = "kernel.smp"
+
+# --- Initcalls (with the initcall_debug kernel parameter) ------------------------
+
+[[rule]]
+match = '^initcall (?P<function>\S+) returned (?P<ret>-?\d+) after (?P<usecs>\d+) usecs'
+title = "initcall {function} ({usecs} µs)"
+kind = "initcall"
+explain = "kernel.initcall"
+duration_us = "usecs"
+
+[[rule]]
+match = '^calling  (?P<function>\S+)'
+title = "initcall {function} starting"
+kind = "initcall"
+explain = "kernel.initcall"
+
+# --- Devices ----------------------------------------------------------------------
+
+[[rule]]
+match = '^\[drm\] Initialized (?P<driver>\S+)'
+title = "Graphics driver {driver} is ready"
+kind = "device"
+explain = "graphics.drm"
+milestone = "graphics_ready"
+
+[[rule]]
+match = '^fbcon: (?P<driver>\S+) \(fb\d+\) is primary device'
+title = "Text console now drawn by the {driver} graphics driver"
+kind = "device"
+explain = "graphics.fbcon"
+
+[[rule]]
+match = '^pci \S+: '
+kind = "device"
+explain = "kernel.pci"
+
+[[rule]]
+match = '^usb \S+: new (?P<speed>.+?) USB device number'
+title = "New {speed} USB device"
+kind = "device"
+explain = "kernel.usb"
+
+[[rule]]
+match = '^tpm_tis \S+: (?P<version>[0-9.]+) TPM'
+title = "TPM {version} chip found"
+kind = "device"
+explain = "firmware.measured_boot"
+
+[[rule]]
+match = '^random: crng init done'
+title = "Kernel random number generator is ready"
+explain = "kernel.entropy"
+
+# --- Initramfs and root filesystem --------------------------------------------------
+
+[[rule]]
+match = '^Trying to unpack rootfs image as initramfs'
+title = "Kernel unpacks the initramfs"
+explain = "kernel.initramfs"
+tag = "initramfs_unpack"
+
+[[rule]]
+match = '^Freeing initrd memory: (?P<size>\d+)K'
+title = "Kernel freed the initramfs archive ({size} KiB)"
+explain = "kernel.initramfs"
+tag = "initramfs_unpack"
+
+[[rule]]
+match = '^Freeing unused kernel (image )?(\(initmem\) )?memory'
+title = "Kernel freed its initialization code"
+explain = "kernel.free_initmem"
+
+[[rule]]
+match = '^Run (?P<path>\S+) as init process'
+title = "Kernel started the first process: {path}"
+explain = "kernel.run_init"
+tag = "run_init"
+
+[[rule]]
+match = '^EXT4-fs \((?P<device>[^)]+)\): mounted filesystem'
+title = "ext4 filesystem mounted from {device}"
+kind = "mount"
+explain = "kernel.root_mount"
+tag = "disk_mount"
+
+[[rule]]
+match = '^XFS \((?P<device>[^)]+)\): Ending clean mount'
+title = "XFS filesystem mounted from {device}"
+kind = "mount"
+explain = "kernel.root_mount"
+tag = "disk_mount"
+
+[[rule]]
+match = '^BTRFS info \(device (?P<device>[^)]+)\): first mount of filesystem'
+title = "Btrfs filesystem mounted from {device}"
+kind = "mount"
+explain = "kernel.root_mount"
+tag = "disk_mount"
+
+[[rule]]
+match = '^EXT4-fs \((?P<device>[^)]+)\): re-mounted'
+title = "ext4 filesystem on {device} remounted (usually read-write)"
+kind = "mount"
+explain = "init.remount_rw"
+
+[[rule]]
+match = '^Adding (?P<size>\d+)k swap on (?P<device>\S+)'
+title = "Swap enabled on {device}"
+kind = "mount"
+explain = "init.swap"
+
+# --- Messages from userspace programs ------------------------------------------------
+
+[[rule]]
+match = '^systemd\[1\]: Switching root'
+title = "systemd switches from the initramfs to the real root filesystem"
+explain = "init.systemd"
+tag = "switch_root"
+
+[[rule]]
+match = '^(systemd-)?udevd\[\d+\]: starting'
+title = "udev device manager started"
+explain = "init.udev"

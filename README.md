@@ -45,6 +45,7 @@ JSON Schema in [schema/](schema/boot-record.schema.json) and an
 | `kb/rules/` | Rules recognizing kernel log messages and programs |
 | `schema/` | Generated JSON Schema (do not edit by hand) |
 | `docs/` | Format documentation and examples |
+| `tests/vm/` | QEMU test VMs (Alpine with OpenRC, Ubuntu with systemd), UEFI with a TPM |
 
 Improving the explanations or teaching kokuin a new kernel message or program only
 needs the files in `kb/`: no Rust.
@@ -56,6 +57,8 @@ cargo test                                      # all tests
 KOKUIN_UPDATE_SCHEMA=1 cargo test -p kokuin-model   # regenerate schema/ after a model change
 cargo build --release --target x86_64-unknown-linux-musl   # static binaries
 ```
+
+To try kokuin-cli on other systems, see [the test VMs](tests/vm/README.md).
 
 ## License
 

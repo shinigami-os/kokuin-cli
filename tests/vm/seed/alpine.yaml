@@ -1,0 +1,79 @@
+#cloud-config
+# First boot of the Alpine test VM (OpenRC, musl): a user, then a sway desktop
+# started automatically by greetd, with seatd and udev like Kira. run.sh
+# replaces @USER@ and @SSH_KEY@.
+
+users:
+  - name: "@USER@"
+    gecos: kokuin test user
+    shell: /bin/ash
+    lock_passwd: false
+    plain_text_passwd: kokuin
+    ssh_authorized_keys:
+      - "@SSH_KEY@"
+
+apk_repos:
+  preserve_repositories: false
+  alpine_repo:
+    version: v3.24 # keep in sync with the image in lib.sh
+    community_enabled: true
+
+package_update: true
+packages:
+  - sudo
+  - eudev
+  - seatd
+  - greetd
+  - greetd-agreety
+  - sway
+  - foot
+  - font-dejavu
+  - mesa-dri-gallium
+
+write_files:
+  - path: /etc/sudoers.d/kokuin
+    permissions: "0440"
+    content: |
+      @USER@ ALL=(ALL) NOPASSWD: ALL
+    defer: true
+  - path: /usr/local/bin/start-sway
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      # Without elogind nothing creates the runtime directory: do it here.
+      if [ -z "$XDG_RUNTIME_DIR" ]; then
+          XDG_RUNTIME_DIR="/tmp/$(id -u)-runtime-dir"
+          mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
+          export XDG_RUNTIME_DIR
+      fi
+      # The VM has no 3D acceleration: render on the CPU.
+      export WLR_RENDERER=pixman WLR_NO_HARDWARE_CURSORS=1
+      exec sway
+    defer: true
+  - path: /etc/greetd/config.toml
+    content: |
+      [terminal]
+      vt = 7
+
+      # Logs in automatically at boot.
+      [initial_session]
+      command = "/usr/local/bin/start-sway"
+      user = "@USER@"
+
+      # After logging out: a text login prompt.
+      [default_session]
+      command = "agreety --cmd /usr/local/bin/start-sway"
+      user = "greetd"
+    defer: true
+
+runcmd:
+  - setup-devd udev
+  - addgroup @USER@ seat
+  - addgroup @USER@ video
+  - addgroup @USER@ input
+  - rc-update add seatd default
+  - rc-update add greetd default
+
+power_state:
+  mode: reboot
+  message: kokuin test VM ready, rebooting to the desktop

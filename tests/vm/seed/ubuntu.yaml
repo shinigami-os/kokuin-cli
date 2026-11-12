@@ -1,0 +1,54 @@
+#cloud-config
+# First boot of the Ubuntu test VM (systemd, glibc): a user, then a sway
+# desktop started automatically by greetd. run.sh replaces @USER@ and @SSH_KEY@.
+
+users:
+  - name: "@USER@"
+    gecos: kokuin test user
+    shell: /bin/bash
+    groups: [video, input, render]
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    plain_text_passwd: kokuin
+    ssh_authorized_keys:
+      - "@SSH_KEY@"
+
+package_update: true
+packages:
+  - greetd
+  - sway
+  - foot
+  - fonts-dejavu-core
+
+write_files:
+  - path: /usr/local/bin/start-sway
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      # The VM has no 3D acceleration: render on the CPU.
+      export WLR_RENDERER=pixman WLR_NO_HARDWARE_CURSORS=1
+      exec sway
+    defer: true
+  - path: /etc/greetd/config.toml
+    content: |
+      [terminal]
+      vt = 7
+
+      # Logs in automatically at boot.
+      [initial_session]
+      command = "/usr/local/bin/start-sway"
+      user = "@USER@"
+
+      # After logging out: a text login prompt.
+      [default_session]
+      command = "agreety --cmd /usr/local/bin/start-sway"
+      user = "_greetd"
+    defer: true
+
+runcmd:
+  - systemctl enable greetd
+  - systemctl set-default graphical.target
+
+power_state:
+  mode: reboot
+  message: kokuin test VM ready, rebooting to the desktop

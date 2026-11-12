@@ -5,14 +5,10 @@ use std::{borrow::Cow, collections::HashMap};
 
 use kokuin_kb::{Kb, ProcessRole};
 use kokuin_model::{Confidence, EventKind, MilestoneKind, Process, ProcessId, Stage};
-use kokuin_sources::{Observation, ProcessInfo};
+use kokuin_sources::{Observation, ProcessInfo, is_normal_user};
 
 use crate::item::{Affinity, Item};
 
-/// First user id of normal (human) users on most distributions.
-const FIRST_NORMAL_UID: u32 = 1000;
-/// `nobody`.
-const NOBODY_UID: u32 = 65534;
 /// Two sources seeing a process with the same PID started this close see the same
 /// process (`/proc` start times are rounded to 10 ms).
 const SAME_PROCESS_NS: i64 = 50_000_000;
@@ -61,7 +57,7 @@ pub(crate) fn build(infos: Vec<(String, ProcessInfo)>, kb: &Kb) -> Processes {
         .iter()
         .enumerate()
         .map(|(index, (_, info))| {
-            let rule = kb.match_process(names(info));
+            let rule = kb.match_process(info.names());
             ProcessEntry {
                 process: Process {
                     id: ProcessId(index as u64 + 1),
@@ -161,14 +157,6 @@ pub(crate) fn service_affinity(item: &Item, kb: &Kb) -> Affinity {
     }
 }
 
-/// Names a rule can recognize: command name, executable and first argument.
-fn names(info: &ProcessInfo) -> Vec<&str> {
-    let mut names = vec![info.comm.as_str()];
-    names.extend(info.exe.as_deref());
-    names.extend(info.cmdline.first().map(String::as_str));
-    names
-}
-
 /// The parent is the process with the parent PID that started last before the child.
 fn link_parents(entries: &mut [ProcessEntry]) {
     for index in 0..entries.len() {
@@ -222,10 +210,6 @@ fn attribute_runit_services(entries: &mut [ProcessEntry]) {
         });
         entries[index].process.service = service;
     }
-}
-
-fn is_normal_user(uid: Option<u32>) -> bool {
-    uid.is_some_and(|uid| uid >= FIRST_NORMAL_UID && uid != NOBODY_UID)
 }
 
 fn affinity(entries: &[ProcessEntry], index: usize) -> Affinity {

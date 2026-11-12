@@ -189,6 +189,27 @@ pub struct ProcessInfo {
     pub confidence: Option<Confidence>,
 }
 
+/// First user id of normal (human) users on most distributions.
+const FIRST_NORMAL_UID: u32 = 1000;
+/// `nobody`.
+const NOBODY_UID: u32 = 65534;
+
+impl ProcessInfo {
+    /// Names a knowledge base rule can recognize the program by: command name,
+    /// executable and first argument.
+    pub fn names(&self) -> Vec<&str> {
+        let mut names = vec![self.comm.as_str()];
+        names.extend(self.exe.as_deref());
+        names.extend(self.cmdline.first().map(String::as_str));
+        names
+    }
+}
+
+/// Whether a user id belongs to a person (not root, a system account or `nobody`).
+pub fn is_normal_user(uid: Option<u32>) -> bool {
+    uid.is_some_and(|uid| uid >= FIRST_NORMAL_UID && uid != NOBODY_UID)
+}
+
 /// The sources to read on this system, in the order of the boot. `init` is the
 /// detected init system (see [`init::detect`]): its adapter is added when there
 /// is one.

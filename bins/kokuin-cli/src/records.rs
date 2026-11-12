@@ -3,12 +3,15 @@
 use std::{io::Read, path::Path};
 
 use kokuin_kb::Kb;
-use kokuin_model::{BootRecord, CaptureInfo, CaptureMethod, EndReason, SourceStatus};
-use kokuin_sources::{Context, format_wall_clock};
+use kokuin_model::{
+    BootRecord, CaptureInfo, CaptureMethod, EndReason, MilestoneKind, SourceStatus,
+};
+use kokuin_sources::{Context, format_wall_clock, proc_events};
 
 use crate::Failure;
 
-/// Builds a record of the boot `ctx` describes, from what the system still remembers.
+/// Builds a record of the boot `ctx` describes: from what the boot recorder saw if it
+/// ran, else from what the system still remembers.
 pub fn build(ctx: &Context) -> BootRecord {
     let collected = kokuin_analyze::collect(ctx);
     let capture = CaptureInfo {
@@ -18,7 +21,23 @@ pub fn build(ctx: &Context) -> BootRecord {
         captured_at: format_wall_clock(ctx.now_unix_ns().unwrap_or_default()),
         end_reason: Some(EndReason::Snapshot),
     };
-    kokuin_analyze::build_record(collected, capture, Kb::embedded())
+    let mut record = kokuin_analyze::build_record(collected, capture, Kb::embedded());
+    if let Some(reason) = recording_end(&record) {
+        record.capture.method = CaptureMethod::Recorder;
+        record.capture.end_reason = Some(reason);
+    }
+    record
+}
+
+/// Why the boot recorder stopped, when the boot was recorded.
+fn recording_end(record: &BootRecord) -> Option<EndReason> {
+    let event = record
+        .milestones
+        .iter()
+        .find(|m| m.kind == MilestoneKind::RecordingEnd)?
+        .event?;
+    let event = record.events.iter().find(|e| e.id == event)?;
+    proc_events::end_reason(event)
 }
 
 /// Reads a record file (`-` for the standard input), rebuilds the record of a

@@ -1,5 +1,6 @@
 //! `kokuin-cli`: records and explains the boot of a Linux system.
 
+mod boots;
 mod commands;
 mod output;
 mod records;
@@ -88,6 +89,9 @@ enum Command {
     },
     /// Print the JSON Schema of boot records.
     Schema,
+    /// Record the current boot. Started by kokuin-init at the beginning of a boot.
+    #[command(hide = true)]
+    Record,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -156,6 +160,7 @@ fn main() -> ExitCode {
         }
         Command::Explain { id, json } => commands::explain::run(id, json),
         Command::Schema => commands::schema::run(),
+        Command::Record => commands::record::run(),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

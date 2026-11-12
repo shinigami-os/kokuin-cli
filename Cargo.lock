@@ -273,6 +273,7 @@ dependencies = [
  "kokuin-analyze",
  "kokuin-kb",
  "kokuin-model",
+ "kokuin-recorder",
  "kokuin-sources",
  "regex",
  "rustix",

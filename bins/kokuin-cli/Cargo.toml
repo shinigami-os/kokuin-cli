@@ -14,6 +14,7 @@ clap = { version = "4.6.7", features = ["derive"] }
 kokuin-analyze = { version = "0.1.0", path = "../../crates/kokuin-analyze" }
 kokuin-kb = { version = "0.1.0", path = "../../crates/kokuin-kb" }
 kokuin-model = { version = "0.1.0", path = "../../crates/kokuin-model" }
+kokuin-recorder = { version = "0.1.0", path = "../../crates/kokuin-recorder" }
 kokuin-sources = { version = "0.1.0", path = "../../crates/kokuin-sources" }
 regex = "1.13.1"
 rustix = { version = "1.1.6", features = ["process"] }

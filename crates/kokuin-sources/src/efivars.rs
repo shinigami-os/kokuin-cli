@@ -41,7 +41,7 @@ impl Source for EfiVars {
             ));
         }
         if let Err(err) = ctx.list_dir(DIR) {
-            let mut report = report::io_error(self.id(), EXPLAIN, &ctx.path(DIR), &err);
+            let mut report = report::io_error(self.id(), EXPLAIN, DIR, &err);
             report.reason = Some(format!(
                 "efivarfs is not mounted on {DIR} (mount -t efivarfs efivarfs {DIR})"
             ));

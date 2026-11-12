@@ -39,7 +39,7 @@ impl Source for TpmEventLog {
         let bytes = match ctx.read_bytes(PATH) {
             Ok(bytes) => bytes,
             Err(err) => {
-                let mut report = report::io_error(self.id(), EXPLAIN, &ctx.path(PATH), &err);
+                let mut report = report::io_error(self.id(), EXPLAIN, PATH, &err);
                 if err.kind() == std::io::ErrorKind::NotFound {
                     report.reason = Some(missing_log_reason(ctx));
                 }

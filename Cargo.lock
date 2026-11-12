@@ -308,6 +308,7 @@ dependencies = [
  "jiff",
  "kokuin-model",
  "rustix",
+ "serde",
  "serde_json",
 ]
 

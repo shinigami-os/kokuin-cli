@@ -21,6 +21,7 @@ sudo kokuin-cli show        # summary of the current boot: chain, stages, milest
 sudo kokuin-cli timeline    # everything that happened, in order (--stage, --source, --kind, --grep)
 kokuin-cli explain          # list the explanations; `kokuin-cli explain firmware.fpdt` shows one
 sudo kokuin-cli capture -o boot.json   # save the record as JSON; `kokuin-cli show boot.json` reads it
+sudo kokuin-cli capture --raw boot/    # also save the raw data; `kokuin-cli show boot/` rebuilds the record
 ```
 
 Without root, kokuin still works but sees less: the kernel log, the TPM log and some

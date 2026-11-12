@@ -30,12 +30,7 @@ impl Source for OpenRc {
         let started = match ctx.list_dir(STARTED) {
             Ok(names) => names,
             Err(err) => {
-                return SourceOutput::empty(report::io_error(
-                    self.id(),
-                    EXPLAIN,
-                    &ctx.path(STARTED),
-                    &err,
-                ));
+                return SourceOutput::empty(report::io_error(self.id(), EXPLAIN, STARTED, &err));
             }
         };
         let runlevels = runlevels(ctx);

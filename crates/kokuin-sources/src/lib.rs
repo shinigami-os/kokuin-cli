@@ -8,8 +8,8 @@
 //! analysis (`kokuin-analyze`) merges them into a boot record: it recognizes messages,
 //! detects milestones, places everything on one timeline.
 //!
-//! Every file access goes through a [`Context`], so tests can point the sources at a
-//! fixture directory laid out like a real system.
+//! Every file access goes through a [`Context`], so the sources can read the running
+//! system, a fixture directory laid out like one, or a [`snapshot`] saved earlier.
 
 mod binary;
 mod context;
@@ -20,6 +20,7 @@ pub mod kconfig;
 pub mod kmsg;
 pub mod procfs;
 mod report;
+pub mod snapshot;
 pub mod system;
 pub mod tpm;
 mod uefi;

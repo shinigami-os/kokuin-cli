@@ -3,10 +3,9 @@
 //! Each record is `prio,seq,timestamp_us,flags[,...];message`, followed by
 //! optional ` KEY=value` lines (the device the message is about).
 
-use std::{fs::File, io, io::Read};
+use std::io;
 
 use kokuin_model::{Confidence, EventKind, LogLevel, SourceStatus};
-use rustix::fs::{Mode, OFlags};
 
 use crate::{Context, Observation, Source, SourceOutput, report};
 
@@ -47,11 +46,10 @@ impl Source for Kmsg {
     }
 
     fn collect(&self, ctx: &Context) -> SourceOutput {
-        let path = ctx.path(PATH);
-        let text = match read_all(&path) {
-            Ok(text) => text,
+        let text = match ctx.read_device(PATH) {
+            Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
             Err(err) => {
-                let mut report = report::io_error(self.id(), EXPLAIN, &path, &err);
+                let mut report = report::io_error(self.id(), EXPLAIN, PATH, &err);
                 let restricted = ctx
                     .read_text("/proc/sys/kernel/dmesg_restrict")
                     .is_ok_and(|v| v.trim() == "1");
@@ -89,31 +87,6 @@ impl Source for Kmsg {
             processes: Vec::new(),
         }
     }
-}
-
-/// Reads every record available. On the device, each `read` returns one record and
-/// `EAGAIN` means there are no more; on a regular file (tests), it is read whole.
-fn read_all(path: &std::path::Path) -> io::Result<String> {
-    let fd = rustix::fs::open(
-        path,
-        OFlags::RDONLY | OFlags::NONBLOCK | OFlags::CLOEXEC,
-        Mode::empty(),
-    )?;
-    let mut file = File::from(fd);
-    let mut text = Vec::new();
-    let mut buffer = vec![0u8; 16 * 1024];
-    loop {
-        match file.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => text.extend_from_slice(&buffer[..n]),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
-            // EPIPE: records were overwritten while reading; the next read continues.
-            Err(err) if err.kind() == io::ErrorKind::BrokenPipe => continue,
-            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
-            Err(err) => return Err(err),
-        }
-    }
-    Ok(String::from_utf8_lossy(&text).into_owned())
 }
 
 /// Parses `/dev/kmsg` records.

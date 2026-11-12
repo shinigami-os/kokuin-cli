@@ -18,8 +18,8 @@ milestones relate, and the identifiers that have a fixed meaning.
 
 | Command | Gives |
 |---|---|
-| `kokuin-cli capture [-o FILE]` | A record of the current boot, rebuilt from what the system still remembers. |
-| `kokuin-cli show [RECORD] --json` | The same, or a record file (`-` for standard input). |
+| `kokuin-cli capture [-o FILE] [--raw DIR]` | A record of the current boot, rebuilt from what the system still remembers. `--raw` also saves the data it was built from (see below). |
+| `kokuin-cli show [RECORD] --json` | The same, or a record file (`-` for standard input), or a record rebuilt from a `--raw` folder. |
 | `kokuin-cli timeline [RECORD] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
 | `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
 | `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs. |
@@ -27,6 +27,20 @@ milestones relate, and the identifiers that have a fixed meaning.
 
 Run them as root to get every source: the TPM log, the kernel log and some firmware
 data are not readable by normal users.
+
+### Raw snapshots
+
+`capture --raw DIR` saves everything kokuin read, so the record can be rebuilt later,
+on another machine, or with newer rules (`kokuin-cli show DIR`):
+
+- `DIR/root/`: the files that were read, at their system path (`root/proc/1/stat`,
+  `root/sys/kernel/security/tpm0/binary_bios_measurements`);
+- `DIR/snapshot.json`: the rest. The clocks (`boot_epoch_unix_ns`,
+  `clock_ticks_per_second`), when and by which process it was saved, the commands run
+  and their output, directory listings, link targets and times, and read errors.
+
+A snapshot holds the command lines of every running process: look at it before
+sharing it. Its layout has its own version (`format`), separate from the record's.
 
 Planned: records saved for each boot by the boot recorder, in
 `/var/lib/kokuin/boots/<boot_id>/record.json` next to a `raw/` directory with the

@@ -78,7 +78,7 @@ impl Source for Fpdt {
             match ctx.read_text(&path) {
                 Ok(text) => values.push(text.trim().parse::<u64>().unwrap_or(0)),
                 Err(err) => {
-                    let mut report = report::io_error(self.id(), EXPLAIN, &ctx.path(&path), &err);
+                    let mut report = report::io_error(self.id(), EXPLAIN, &path, &err);
                     if !ctx.exists(DIR) {
                         report.reason = Some(
                             "the firmware has no FPDT table, or the kernel does not expose it \

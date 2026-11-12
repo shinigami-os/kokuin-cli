@@ -39,10 +39,15 @@ enum Command {
         /// Write compact JSON on one line.
         #[arg(long)]
         compact: bool,
+        /// Also save everything that was read (files, command outputs, clocks) in this
+        /// new folder, to analyze the boot again later or on another machine.
+        #[arg(long, value_name = "DIR")]
+        raw: Option<PathBuf>,
     },
     /// Summarize a boot: system, stages, milestones, slowest steps.
     Show {
-        /// Record file to read (JSON, `-` for standard input). Default: the current boot.
+        /// Record file to read (JSON, `-` for standard input), or folder saved by
+        /// `capture --raw`. Default: the current boot.
         record: Option<PathBuf>,
         /// Print the whole record as JSON instead of the summary.
         #[arg(long)]
@@ -50,7 +55,8 @@ enum Command {
     },
     /// List everything that happened during a boot, in order.
     Timeline {
-        /// Record file to read (JSON, `-` for standard input). Default: the current boot.
+        /// Record file to read (JSON, `-` for standard input), or folder saved by
+        /// `capture --raw`. Default: the current boot.
         record: Option<PathBuf>,
         /// Only these stages (repeatable).
         #[arg(long, value_parser = parse_enum::<Stage>)]
@@ -125,7 +131,11 @@ fn main() -> ExitCode {
 
     let result = match cli.command {
         Command::Status { json } => commands::status::run(json),
-        Command::Capture { output, compact } => commands::capture::run(output, compact),
+        Command::Capture {
+            output,
+            compact,
+            raw,
+        } => commands::capture::run(output, compact, raw),
         Command::Show { record, json } => commands::show::run(record, json),
         Command::Timeline {
             record,

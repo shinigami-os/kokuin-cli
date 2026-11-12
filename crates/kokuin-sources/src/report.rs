@@ -25,8 +25,15 @@ pub(crate) fn with_status(
     }
 }
 
-/// A report for a source that could not be read because of `err` on `path`.
-pub(crate) fn io_error(id: &str, explain_id: &str, path: &Path, err: &io::Error) -> SourceReport {
+/// A report for a source that could not be read because of `err` on `path`, a
+/// system path (`/sys/...`, wherever the context reads it from).
+pub(crate) fn io_error(
+    id: &str,
+    explain_id: &str,
+    path: impl AsRef<Path>,
+    err: &io::Error,
+) -> SourceReport {
+    let path = path.as_ref();
     let (status, reason) = match err.kind() {
         io::ErrorKind::NotFound => (
             SourceStatus::Unavailable,

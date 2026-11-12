@@ -1,6 +1,6 @@
 //! Where the record a command works on comes from.
 
-use std::{io::Read, path::Path, time::SystemTime};
+use std::{io::Read, path::Path};
 
 use kokuin_kb::Kb;
 use kokuin_model::{BootRecord, CaptureInfo, CaptureMethod, EndReason, SourceStatus};
@@ -8,31 +8,33 @@ use kokuin_sources::{Context, format_wall_clock};
 
 use crate::Failure;
 
-/// Rebuilds a record of the current boot from what the system still remembers.
-pub fn capture_current_boot() -> BootRecord {
-    let ctx = Context::live();
-    let collected = kokuin_analyze::collect(&ctx);
-    let now_ns = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX));
+/// Builds a record of the boot `ctx` describes, from what the system still remembers.
+pub fn build(ctx: &Context) -> BootRecord {
+    let collected = kokuin_analyze::collect(ctx);
     let capture = CaptureInfo {
         tool: env!("CARGO_PKG_NAME").to_owned(),
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         method: CaptureMethod::PostHoc,
-        captured_at: format_wall_clock(now_ns),
+        captured_at: format_wall_clock(ctx.now_unix_ns().unwrap_or_default()),
         end_reason: Some(EndReason::Snapshot),
     };
     kokuin_analyze::build_record(collected, capture, Kb::embedded())
 }
 
-/// Reads a record file (`-` for the standard input), or captures the current boot
-/// when no file is given.
+/// Reads a record file (`-` for the standard input), rebuilds the record of a
+/// snapshot directory, or captures the current boot when no path is given.
 pub fn load(path: Option<&Path>) -> Result<BootRecord, Failure> {
-    let Some(path) = path else {
-        let record = capture_current_boot();
-        warn_about_missing_sources(&record);
-        return Ok(record);
+    let ctx = match path {
+        None => Context::live(),
+        Some(dir) if dir.is_dir() => Context::from_snapshot(dir)?,
+        Some(file) => return read_file(file),
     };
+    let record = build(&ctx);
+    warn_about_missing_sources(&record);
+    Ok(record)
+}
+
+fn read_file(path: &Path) -> Result<BootRecord, Failure> {
     let text = if path == Path::new("-") {
         let mut text = String::new();
         std::io::stdin().read_to_string(&mut text)?;

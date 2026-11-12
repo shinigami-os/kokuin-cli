@@ -12,6 +12,7 @@ flate2 = "1.1.11"
 jiff = "0.2.43"
 kokuin-model = { version = "0.1.0", path = "../kokuin-model" }
 rustix = { version = "1.1.6", features = ["fs", "time", "param"] }
+serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 
 [lints]

@@ -30,15 +30,10 @@ impl Source for Procfs {
                 .into_iter()
                 .filter_map(|name| name.parse::<u32>().ok()),
             Err(err) => {
-                return SourceOutput::empty(report::io_error(
-                    self.id(),
-                    EXPLAIN,
-                    &ctx.path("/proc"),
-                    &err,
-                ));
+                return SourceOutput::empty(report::io_error(self.id(), EXPLAIN, "/proc", &err));
             }
         };
-        let own_pid = ctx.is_live().then(std::process::id);
+        let own_pid = ctx.own_pid();
         let ticks = ctx.clock_ticks_per_second();
         let mut processes: Vec<ProcessInfo> = pids
             .filter(|&pid| Some(pid) != own_pid)

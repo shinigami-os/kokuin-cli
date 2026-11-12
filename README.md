@@ -10,7 +10,21 @@ It is the backend and command-line front-end of **kokuin**. The graphical
 Built for [Kira Linux](https://github.com/shinigami-os), designed to work on any
 Linux distribution.
 
-Status: early development. Only the data format exists so far.
+Status: early development. `kokuin-cli` rebuilds the current boot from what the
+system remembers; the boot recorder (every process, live) comes next.
+
+## Usage
+
+```sh
+sudo kokuin-cli status      # what can be read here, and why some data is missing
+sudo kokuin-cli show        # summary of the current boot: chain, stages, milestones, slowest steps
+sudo kokuin-cli timeline    # everything that happened, in order (--stage, --source, --kind, --grep)
+kokuin-cli explain          # list the explanations; `kokuin-cli explain firmware.fpdt` shows one
+sudo kokuin-cli capture -o boot.json   # save the record as JSON; `kokuin-cli show boot.json` reads it
+```
+
+Without root, kokuin still works but sees less: the kernel log, the TPM log and some
+firmware data are readable by root only.
 
 ## Data format
 
@@ -23,8 +37,17 @@ JSON Schema in [schema/](schema/boot-record.schema.json) and an
 | Path | Content |
 |---|---|
 | `crates/kokuin-model` | Rust types of the boot record; the JSON Schema is generated from them |
+| `crates/kokuin-sources` | Readers of each data source (FPDT, TPM log, EFI variables, kernel log, /proc, init systems) |
+| `crates/kokuin-kb` | Loads the knowledge base and its recognition rules |
+| `crates/kokuin-analyze` | Merges the sources into a boot record: timeline, stages, milestones |
+| `bins/kokuin-cli` | The command-line tool |
+| `kb/articles/` | Explanations, one Markdown file per topic (`firmware/fpdt.md` is `firmware.fpdt`) |
+| `kb/rules/` | Rules recognizing kernel log messages and programs |
 | `schema/` | Generated JSON Schema (do not edit by hand) |
 | `docs/` | Format documentation and examples |
+
+Improving the explanations or teaching kokuin a new kernel message or program only
+needs the files in `kb/`: no Rust.
 
 ## Development
 

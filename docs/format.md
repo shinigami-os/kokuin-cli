@@ -16,15 +16,22 @@ milestones relate, and the identifiers that have a fixed meaning.
 
 ## Where records come from
 
-| Command (planned) | Gives |
+| Command | Gives |
 |---|---|
-| `kokuin-cli capture --json` | A record of the current boot, rebuilt from what the system still remembers. |
-| `kokuin-cli export [BOOT] --json` | A stored record (one is saved for each boot when recording is enabled). |
+| `kokuin-cli capture [-o FILE]` | A record of the current boot, rebuilt from what the system still remembers. |
+| `kokuin-cli show [RECORD] --json` | The same, or a record file (`-` for standard input). |
+| `kokuin-cli timeline [RECORD] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
+| `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
+| `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs. |
 | `kokuin-cli schema` | The JSON Schema. |
 
-Stored records live in `/var/lib/kokuin/boots/<boot_id>/record.json`, next to a
-`raw/` directory with the original data they were built from. Consumers should go
-through `kokuin-cli` rather than read that directory, which may change.
+Run them as root to get every source: the TPM log, the kernel log and some firmware
+data are not readable by normal users.
+
+Planned: records saved for each boot by the boot recorder, in
+`/var/lib/kokuin/boots/<boot_id>/record.json` next to a `raw/` directory with the
+original data, and listed by `kokuin-cli list`. Consumers should go through
+`kokuin-cli` rather than read that directory, which may change.
 
 ## Versioning
 
@@ -178,6 +185,6 @@ shipped inside `kokuin-cli`, written for people learning how Linux boots. The fo
 `<area>.<topic>`, lowercase with underscores. Areas: `stage`, `firmware`,
 `bootloader`, `kernel`, `init`, `graphics`, `session`.
 
-`kokuin-cli explain <explain_id>` (planned) prints the article; with `--json`, it
-returns its title, Markdown body and related articles so a GUI can display it. An
+`kokuin-cli explain <explain_id>` prints the article; with `--json`, it returns its
+title, Markdown body and related articles so a GUI can display it. An
 `explain_id` without an article is not an error: show nothing.

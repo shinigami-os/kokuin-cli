@@ -801,6 +801,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kokuin-probe-format"
+version = "0.1.0"
+
+[[package]]
 name = "kokuin-recorder"
 version = "0.1.0"
 dependencies = [

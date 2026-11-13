@@ -1,0 +1,14 @@
+[package]
+name = "kokuin-probe-format"
+version.workspace = true
+description = "What kokuin's EFI probe leaves for Linux in an EFI variable: the format, written by the probe and read by kokuin-cli"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# No dependencies, and no standard library: the EFI probe uses it too.
+[dependencies]
+
+[lints]
+workspace = true

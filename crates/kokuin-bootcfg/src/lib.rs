@@ -29,6 +29,29 @@ pub fn parameters(current_init: Option<&str>) -> String {
     parameters
 }
 
+/// Marks a boot recorded with kernel tracing. A dotted parameter: the kernel does not
+/// hand it to init.
+pub const DEEP_MARKER: &str = "kokuin.deep=1";
+
+/// What a deep boot asks the kernel, besides starting kokuin-init:
+///
+/// - `initcall_debug`: log each kernel init function, with its duration;
+/// - `log_buf_len=16M`: room in the kernel log for these thousands of lines;
+/// - `trace_event=sched:sched_process_exec`: trace every program started, with its
+///   file name, `trace_clock=mono` on the boot clock, in an 8 MB buffer per CPU.
+pub const DEEP_TRACING: &str = "initcall_debug log_buf_len=16M \
+    trace_event=sched:sched_process_exec trace_clock=mono trace_buf_size=8M";
+
+/// The kernel parameters of a deep boot (see [`parameters`] for `current_init`).
+pub fn deep_parameters(current_init: Option<&str>) -> String {
+    format!("{} {DEEP_TRACING} {DEEP_MARKER}", parameters(current_init))
+}
+
+/// Whether a kernel command line is that of a deep boot.
+pub fn is_deep_boot(cmdline: &str) -> bool {
+    cmdline.split_whitespace().any(|word| word == DEEP_MARKER)
+}
+
 /// The `init=` of a kernel command line (the last one wins, as in the kernel).
 pub fn init_parameter(cmdline: &str) -> Option<&str> {
     cmdline
@@ -128,10 +151,10 @@ pub fn plan_enable(system: &System, section: Section, parameters: &str) -> Resul
     Ok(grub.plan_enable(section, parameters))
 }
 
-/// The change that removes a section [`plan_enable`] added.
-pub fn plan_disable(system: &System, section: Section) -> Result<Plan, PlanError> {
+/// The change that removes sections [`plan_enable`] added, in one go.
+pub fn plan_disable(system: &System, sections: &[Section]) -> Result<Plan, PlanError> {
     let grub = system.grub.as_ref().ok_or(PlanError::Unsupported)?;
-    Ok(grub.plan_disable(section))
+    Ok(grub.plan_disable(sections))
 }
 
 /// Whether a section is in the bootloader configuration.
@@ -212,6 +235,14 @@ mod tests {
             parameters(Some(KOKUIN_INIT)),
             "init=/usr/lib/kokuin/kokuin-init"
         );
+    }
+
+    #[test]
+    fn a_deep_boot_is_marked() {
+        let parameters = deep_parameters(None);
+        assert!(parameters.starts_with("init=/usr/lib/kokuin/kokuin-init initcall_debug "));
+        assert!(is_deep_boot(&format!("ro quiet {parameters}")));
+        assert!(!is_deep_boot("ro quiet kokuin.deep=0"));
     }
 
     #[test]

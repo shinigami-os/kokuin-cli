@@ -114,17 +114,23 @@ impl Grub {
         self.plan(edits)
     }
 
-    pub(crate) fn plan_disable(&self, section: Section) -> Plan {
+    pub(crate) fn plan_disable(&self, sections: &[Section]) -> Plan {
         let mut edits = Vec::new();
-        if let (Some(dir), Some(content)) = (&self.drop_in_dir, self.drop_ins.get(&section)) {
-            edits.push(Edit {
-                path: dir.join(drop_in_name(section)),
-                before: Some(content.clone()),
-                after: None,
-            });
+        let mut defaults = self.defaults.clone();
+        for &section in sections {
+            if let (Some(dir), Some(content)) = (&self.drop_in_dir, self.drop_ins.get(&section)) {
+                edits.push(Edit {
+                    path: dir.join(drop_in_name(section)),
+                    before: Some(content.clone()),
+                    after: None,
+                });
+            }
+            if let Some(cleaned) = remove_block(&defaults, section) {
+                defaults = cleaned;
+            }
         }
-        if let Some(cleaned) = remove_block(&self.defaults, section) {
-            edits.push(self.defaults_edit(cleaned));
+        if defaults != self.defaults {
+            edits.push(self.defaults_edit(defaults));
         }
         self.plan(edits)
     }
@@ -267,7 +273,7 @@ mod tests {
         assert!(enabled.is_enabled(Section::Recording));
         assert!(!enabled.is_enabled(Section::Deep));
 
-        let disabled = applied(&enabled, &enabled.plan_disable(Section::Recording));
+        let disabled = applied(&enabled, &enabled.plan_disable(&[Section::Recording]));
         assert_eq!(disabled.defaults, ALPINE);
     }
 
@@ -287,16 +293,20 @@ mod tests {
         let both = applied(&recording, &recording.plan_enable(Section::Deep, DEEP));
         assert!(both.is_enabled(Section::Recording) && both.is_enabled(Section::Deep));
 
-        let without_deep = applied(&both, &both.plan_disable(Section::Deep));
+        let without_deep = applied(&both, &both.plan_disable(&[Section::Deep]));
         assert_eq!(without_deep.defaults, recording.defaults);
-        let without_recording = applied(&both, &both.plan_disable(Section::Recording));
+        let without_recording = applied(&both, &both.plan_disable(&[Section::Recording]));
         assert!(without_recording.is_enabled(Section::Deep));
         assert!(!without_recording.is_enabled(Section::Recording));
         let none = applied(
             &without_recording,
-            &without_recording.plan_disable(Section::Deep),
+            &without_recording.plan_disable(&[Section::Deep]),
         );
         assert_eq!(none.defaults, ALPINE);
+        // Both at once, in one change of the file.
+        let plan = both.plan_disable(&Section::ALL);
+        assert_eq!(plan.edits.len(), 1);
+        assert_eq!(applied(&both, &plan).defaults, ALPINE);
     }
 
     #[test]
@@ -335,14 +345,14 @@ mod tests {
         let enabled = applied(&grub, &plan);
         assert!(enabled.is_enabled(Section::Deep));
         assert!(!enabled.is_enabled(Section::Recording));
-        let disable = enabled.plan_disable(Section::Deep);
+        let disable = enabled.plan_disable(&[Section::Deep]);
         assert_eq!(disable.edits.len(), 1);
         assert_eq!(disable.edits[0].after, None);
     }
 
     #[test]
     fn disabling_what_is_not_enabled_does_nothing() {
-        let plan = grub(true).plan_disable(Section::Recording);
+        let plan = grub(true).plan_disable(&[Section::Recording]);
         assert!(plan.is_empty());
         assert!(plan.regenerate.is_empty());
     }

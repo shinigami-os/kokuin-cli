@@ -191,6 +191,8 @@ struct RecorderState {
     probe_armed: bool,
     /// The system booted through UEFI (the probe needs it).
     uefi: bool,
+    /// Secure Boot is on (the unsigned probe cannot run).
+    secure_boot: bool,
     /// Where the recording of this boot is, if it was recorded.
     current_boot: Option<String>,
     boots_recorded: usize,
@@ -212,6 +214,7 @@ impl RecorderState {
             probe_entry: firmware.probe_entry().map(|entry| entry.number),
             probe_armed: firmware.is_armed(),
             uefi: firmware.is_uefi(),
+            secure_boot: firmware.secure_boot(),
             current_boot: boots::current().map(|b| b.dir.display().to_string()),
             boots_recorded: boots::list().len(),
         }
@@ -262,6 +265,10 @@ impl RecorderState {
                 (Some(entry), false) => println!(
                     "  {} EFI probe installed (Boot{entry:04X}); `sudo kokuin-cli probe arm` times the next boot's firmware",
                     mark(true)
+                ),
+                (None, _) if self.secure_boot => println!(
+                    "  {} EFI probe not available: Secure Boot is on, and the probe is not signed",
+                    paint(style::DIM, "·")
                 ),
                 (None, _) => println!(
                     "  {} EFI probe not installed: `sudo kokuin-cli probe install` to time the firmware",

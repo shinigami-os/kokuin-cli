@@ -284,3 +284,37 @@ fn ubuntu_recorded_boot() {
         Some("greetd")
     );
 }
+
+/// The same Ubuntu VM, rebuilt after the fact, then recorded live.
+#[test]
+fn diff_of_a_rebuilt_and_a_recorded_boot() {
+    let rebuilt = snapshot("ubuntu-26.04-qemu");
+    let recorded = snapshot("ubuntu-26.04-qemu-recorded");
+
+    let same = kokuin_analyze::diff(&recorded, &recorded);
+    assert!(same.steps.is_empty() && same.new_programs.is_empty());
+    assert!(same.milestones.iter().all(|m| m.delta_ns == Some(0)));
+
+    let diff = kokuin_analyze::diff(&rebuilt, &recorded);
+    let ready = diff
+        .milestones
+        .iter()
+        .find(|m| m.kind == M::SessionReady)
+        .unwrap();
+    assert!(ready.a_ns.is_some() && ready.b_ns.is_some());
+    // Milestones are in time order.
+    let times: Vec<i64> = diff
+        .milestones
+        .iter()
+        .filter_map(|m| m.b_ns.or(m.a_ns))
+        .collect();
+    assert!(times.windows(2).all(|pair| pair[0] <= pair[1]));
+    // Only the recording sees the short-lived programs.
+    assert!(diff.new_programs.len() > 50, "{}", diff.new_programs.len());
+    // Services are matched by name: steps are not all new or gone.
+    assert!(
+        diff.steps
+            .iter()
+            .any(|s| s.a_ns.is_some() && s.b_ns.is_some())
+    );
+}

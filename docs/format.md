@@ -22,9 +22,10 @@ milestones relate, and the identifiers that have a fixed meaning.
 | `kokuin-cli list --json` | The recorded boots: `boot_id`, `current` (this boot), `started_at`, `dir`, `method`, `end_reason`, `session_ready_ns`. |
 | `kokuin-cli show [BOOT] --json` | A whole record. `BOOT` is `last`, `-2`, the start of a boot id, a record file (`-` for standard input), or a `--raw` folder (rebuilt). Without it: the current boot's recording if it was recorded, else a record rebuilt from what the system still remembers. |
 | `kokuin-cli timeline [BOOT] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
+| `kokuin-cli diff [A] [B] --json` | The comparison of two boots (default: `-2` and `last`; same forms as `BOOT`), described by `schema/boot-diff.schema.json`: both boots, then each milestone, stage and timed step with its time or duration in A and B and the change (`delta_ns`, B minus A), and the programs run in only one of them. Steps are matched by `service:<name>`, `initcall:<function>`, or else `<source>:<title>`. |
 | `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
 | `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs, and the state of the boot recorder (`recorder`: `installed`, `enabled`, `deep_armed`, `current_boot`, `boots_recorded`). |
-| `kokuin-cli schema` | The JSON Schema. |
+| `kokuin-cli schema [record\|diff]` | The JSON Schema of records (default) or of `diff --json`. |
 
 Run them as root to get every source: the TPM log, the kernel log and some firmware
 data are not readable by normal users.
@@ -96,6 +97,9 @@ change.
 
 Changes:
 
+- **0.3**: `kokuin-cli diff --json` and its schema (`BootDiff`); `capture.method`
+  `recorder_deep` in use (boots armed with `kokuin-cli deep`, with kernel init
+  functions as `initcall` events).
 - **0.2**: event kind `recording` (the boot recorder starting and stopping), source
   `proc_events` filled by the boot recorder, `capture.method` `recorder` in use.
 

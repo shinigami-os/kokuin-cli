@@ -31,6 +31,8 @@ while they happen:
 sudo kokuin-cli enable      # adds kokuin-init to the kernel command line (GRUB), then reboot
 kokuin-cli list             # the recorded boots
 kokuin-cli show last        # the last one (also `-2`, or the start of a boot id)
+sudo kokuin-cli deep        # record the next boot with kernel tracing: init functions, every program
+kokuin-cli diff -2 last     # what changed between two boots
 sudo kokuin-cli disable     # stop recording
 ```
 

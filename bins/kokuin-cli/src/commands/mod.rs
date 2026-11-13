@@ -1,6 +1,7 @@
 //! One module per subcommand.
 
 pub mod capture;
+pub mod diff;
 pub mod enable;
 pub mod explain;
 pub mod list;

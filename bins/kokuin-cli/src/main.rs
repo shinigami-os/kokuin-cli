@@ -88,6 +88,19 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Compare two boots: milestones, stages, steps that got slower or faster, new
+    /// programs.
+    Diff {
+        /// The first boot (same forms as for `show`). Default: `-2`.
+        #[arg(allow_hyphen_values = true)]
+        a: Option<String>,
+        /// The second boot. Default: `last`.
+        #[arg(allow_hyphen_values = true)]
+        b: Option<String>,
+        /// Print JSON instead of text.
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain a step of the boot. Without an id, list the explanations.
     Explain {
         /// Identifier of the explanation, as shown by the other commands (for example
@@ -120,11 +133,24 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Print the JSON Schema of boot records.
-    Schema,
+    /// Print a JSON Schema: of boot records (default), or of `diff --json`.
+    Schema {
+        /// Which document.
+        #[arg(value_enum, default_value_t = SchemaKind::Record)]
+        of: SchemaKind,
+    },
     /// Record the current boot. Started by kokuin-init at the beginning of a boot.
     #[command(hide = true)]
     Record,
+}
+
+/// The JSON documents kokuin-cli prints.
+#[derive(Clone, Copy, ValueEnum)]
+pub enum SchemaKind {
+    /// A boot record (`show --json`, `capture`).
+    Record,
+    /// A comparison of two boots (`diff --json`).
+    Diff,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -196,7 +222,8 @@ fn main() -> ExitCode {
         Command::Enable { dry_run } => commands::enable::enable(dry_run),
         Command::Disable { dry_run } => commands::enable::disable(dry_run),
         Command::Deep { dry_run, cancel } => commands::enable::deep(dry_run, cancel),
-        Command::Schema => commands::schema::run(),
+        Command::Schema { of } => commands::schema::run(of),
+        Command::Diff { a, b, json } => commands::diff::run(a, b, json),
         Command::Record => commands::record::run(),
     };
     match result {

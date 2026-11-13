@@ -1,0 +1,22 @@
+# kokuin's boot recorder, started by systemd in the initramfs (dracut, mkinitcpio's
+# systemd hook) when the kernel command line has kokuin.record=1. The recorder
+# follows the switch to the real root filesystem and stops by itself once the
+# desktop is ready.
+#
+# The same file goes on the real root filesystem, never started there: systemd wants
+# the unit of a process started in the initramfs to exist on both sides.
+[Unit]
+Description=kokuin boot recorder
+Documentation=https://github.com/shinigami-os/kokuin-cli
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+RefuseManualStop=yes
+SurviveFinalKillSignal=yes
+ConditionKernelCommandLine=kokuin.record=1
+ConditionPathExists=/etc/initrd-release
+
+[Service]
+Type=simple
+# The leading "@" makes "@kokuin-cli" the process's argv[0]: systemd versions older
+# than SurviveFinalKillSignal spare such processes when switching to the real root.
+ExecStart=@/usr/bin/kokuin-cli @kokuin-cli record --initramfs

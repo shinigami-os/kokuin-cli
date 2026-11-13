@@ -1,0 +1,12 @@
+#!/usr/bin/ash
+# kokuin's mkinitcpio runtime hook, for initramfs images without systemd: starts
+# kokuin's boot recorder in the background when the kernel command line has
+# kokuin.record=1. Installed by `kokuin-cli enable` as /etc/initcpio/hooks/kokuin.
+
+run_earlyhook() {
+    case " $(cat /proc/cmdline) " in
+    *" kokuin.record=1 "*)
+        /usr/bin/kokuin-cli record --initramfs </dev/null >/dev/null 2>&1 &
+        ;;
+    esac
+}

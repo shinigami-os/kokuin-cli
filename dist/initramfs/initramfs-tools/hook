@@ -1,0 +1,18 @@
+#!/bin/sh
+# kokuin's initramfs-tools hook: puts kokuin's boot recorder in the initramfs.
+# Installed by `kokuin-cli enable` as /etc/initramfs-tools/hooks/kokuin.
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /usr/bin/kokuin-cli /usr/bin
+if [ -f /etc/kokuin/config.toml ]; then
+    copy_file config /etc/kokuin/config.toml
+fi
+exit 0

@@ -1,0 +1,22 @@
+#!/bin/bash
+# kokuin's mkinitcpio hook: puts kokuin's boot recorder in the initramfs, started by
+# systemd with the systemd hook, else by the runtime hook /etc/initcpio/hooks/kokuin.
+# Installed by `kokuin-cli enable` as /etc/initcpio/install/kokuin.
+
+build() {
+    add_binary /usr/bin/kokuin-cli
+    if [[ -f /etc/kokuin/config.toml ]]; then
+        add_file /etc/kokuin/config.toml
+    fi
+    if [[ " ${HOOKS[*]} " == *" systemd "* ]]; then
+        add_file /etc/systemd/system/kokuin-recorder.service /usr/lib/systemd/system/kokuin-recorder.service
+        add_symlink /usr/lib/systemd/system/sysinit.target.wants/kokuin-recorder.service ../kokuin-recorder.service
+    else
+        add_runscript
+    fi
+}
+
+help() {
+    echo "Starts kokuin's boot recorder at the beginning of the initramfs, when the"
+    echo "kernel command line has kokuin.record=1 (see kokuin-cli enable)."
+}

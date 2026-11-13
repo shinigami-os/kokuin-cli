@@ -91,11 +91,11 @@ impl Grub {
             Some(dir) => {
                 let current = self.drop_ins.get(&section);
                 if current != Some(&block) {
-                    edits.push(Edit {
-                        path: dir.join(drop_in_name(section)),
-                        before: current.cloned(),
-                        after: Some(block),
-                    });
+                    edits.push(Edit::new(
+                        dir.join(drop_in_name(section)),
+                        current.cloned(),
+                        Some(block),
+                    ));
                 }
                 // A block left by an earlier version goes away.
                 if let Some(cleaned) = remove_block(&self.defaults, section) {
@@ -119,11 +119,11 @@ impl Grub {
         let mut defaults = self.defaults.clone();
         for &section in sections {
             if let (Some(dir), Some(content)) = (&self.drop_in_dir, self.drop_ins.get(&section)) {
-                edits.push(Edit {
-                    path: dir.join(drop_in_name(section)),
-                    before: Some(content.clone()),
-                    after: None,
-                });
+                edits.push(Edit::new(
+                    dir.join(drop_in_name(section)),
+                    Some(content.clone()),
+                    None,
+                ));
             }
             if let Some(cleaned) = remove_block(&defaults, section) {
                 defaults = cleaned;
@@ -136,16 +136,16 @@ impl Grub {
     }
 
     fn defaults_edit(&self, after: String) -> Edit {
-        Edit {
-            path: self.defaults_path.clone(),
-            before: Some(self.defaults.clone()),
-            after: Some(after),
-        }
+        Edit::new(
+            self.defaults_path.clone(),
+            Some(self.defaults.clone()),
+            Some(after),
+        )
     }
 
     fn plan(&self, edits: Vec<Edit>) -> Plan {
         Plan {
-            bootloader: "GRUB".into(),
+            title: "Bootloader: GRUB".into(),
             regenerate: if edits.is_empty() {
                 Vec::new()
             } else {

@@ -10,9 +10,11 @@
 
 pub mod efi;
 pub mod grub;
+pub mod initramfs;
 
 use std::{
     fs, io,
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -125,16 +127,45 @@ pub struct Edit {
     pub before: Option<String>,
     /// Its content afterwards, `None` to delete it.
     pub after: Option<String>,
+    /// The file is a program (a hook script): written executable.
+    pub executable: bool,
+    /// Its folder is kokuin's own: deleted with its last file.
+    pub own_folder: bool,
+}
+
+impl Edit {
+    /// A change of a plain file.
+    pub fn new(path: PathBuf, before: Option<String>, after: Option<String>) -> Self {
+        Self {
+            path,
+            before,
+            after,
+            executable: false,
+            own_folder: false,
+        }
+    }
+
+    /// The file is a program.
+    pub fn executable(mut self) -> Self {
+        self.executable = true;
+        self
+    }
+
+    /// Its folder is kokuin's own.
+    pub fn in_own_folder(mut self) -> Self {
+        self.own_folder = true;
+        self
+    }
 }
 
 /// What enabling or disabling does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
-    /// The bootloader, in words.
-    pub bootloader: String,
+    /// What is changed, in words (`Bootloader: GRUB`, `Initramfs: dracut`).
+    pub title: String,
     /// Files to change.
     pub edits: Vec<Edit>,
-    /// The command that regenerates the bootloader's configuration afterwards.
+    /// The command that regenerates the configuration afterwards (`update-grub`).
     pub regenerate: Vec<String>,
 }
 
@@ -190,15 +221,24 @@ pub fn apply(plan: &Plan) -> io::Result<()> {
                     fs::create_dir_all(parent)?;
                 }
                 fs::write(&edit.path, after)?;
+                if edit.executable {
+                    fs::set_permissions(&edit.path, fs::Permissions::from_mode(0o755))?;
+                }
                 // Back to the original: the backup has nothing more to keep.
                 if fs::read_to_string(&backup).is_ok_and(|original| original == *after) {
                     fs::remove_file(&backup)?;
                 }
             }
-            None => match fs::remove_file(&edit.path) {
-                Err(err) if err.kind() != io::ErrorKind::NotFound => return Err(err),
-                _ => {}
-            },
+            None => {
+                match fs::remove_file(&edit.path) {
+                    Err(err) if err.kind() != io::ErrorKind::NotFound => return Err(err),
+                    _ => {}
+                }
+                // Kept while other files remain in it.
+                if let (true, Some(folder)) = (edit.own_folder, edit.path.parent()) {
+                    let _ = fs::remove_dir(folder);
+                }
+            }
         }
     }
     let Some((program, args)) = plan.regenerate.split_first() else {
@@ -275,12 +315,12 @@ mod tests {
         let backup = dir.join("grub.kokuin-backup");
         fs::write(&path, "original\n").unwrap();
         let change = |before: &str, after: &str| Plan {
-            bootloader: "test".into(),
-            edits: vec![Edit {
-                path: path.clone(),
-                before: Some(before.into()),
-                after: Some(after.into()),
-            }],
+            title: "test".into(),
+            edits: vec![Edit::new(
+                path.clone(),
+                Some(before.into()),
+                Some(after.into()),
+            )],
             regenerate: Vec::new(),
         };
 

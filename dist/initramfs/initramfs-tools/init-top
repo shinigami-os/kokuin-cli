@@ -1,0 +1,20 @@
+#!/bin/sh
+# kokuin's initramfs-tools script: starts kokuin's boot recorder at the very beginning
+# of the initramfs, in the background, when the kernel command line has
+# kokuin.record=1. Installed by `kokuin-cli enable` as
+# /etc/initramfs-tools/scripts/init-top/kokuin.
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+case " $(cat /proc/cmdline) " in
+*" kokuin.record=1 "*)
+    /usr/bin/kokuin-cli record --initramfs </dev/null >/dev/null 2>&1 &
+    ;;
+esac
+exit 0

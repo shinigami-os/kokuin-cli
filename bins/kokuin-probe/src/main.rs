@@ -21,7 +21,7 @@ extern crate alloc;
 use alloc::{format, string::String, string::ToString, vec::Vec};
 use core::time::Duration;
 
-use kokuin_probe_format::{FORMAT, GUID, Report, VARIABLE};
+use kokuin_probe_format::{ENTRY_DESCRIPTION, FORMAT, GUID, Report, VARIABLE};
 use uefi::{
     CString16, Guid, Status,
     boot::{self, LoadImageSource, MemoryType},
@@ -57,7 +57,8 @@ fn main() -> Status {
 
     let boot_current = global_u16("BootCurrent");
     report.boot_current = boot_current;
-    let Some((entry, option)) = requested_entry().or_else(|| next_entry(boot_current)) else {
+    let Some((entry, option)) = requested_entry(boot_current).or_else(|| next_entry(boot_current))
+    else {
         report.handover_error = Some("no other boot entry in BootOrder".into());
         write_report(&report);
         return Status::NOT_FOUND;
@@ -67,10 +68,14 @@ fn main() -> Status {
 
     // An entry for a whole disk (no file in its path) boots that disk's standard
     // fallback program: take it from the probe's own partition, the ESP.
+    let own = own_device_path();
     let path = if has_file(&option.device_path) {
-        Some(option.device_path)
+        Some(match &own {
+            Some(own) => full_path(&option.device_path, own),
+            None => option.device_path,
+        })
     } else {
-        own_device_path().map(|own| with_file(&own, FALLBACK_PROGRAM))
+        own.map(|own| with_file(&own, FALLBACK_PROGRAM))
     };
     let image = path
         .ok_or_else(|| "its device path is not known".to_string())
@@ -144,6 +149,32 @@ fn nodes(path: &[u8]) -> Vec<(u8, u8, &[u8])> {
     nodes
 }
 
+/// A short-form path (a partition then a file, as distributions write their
+/// entries) made whole, the way the firmware's boot manager does: when the partition
+/// is in the probe's own full path, the part of that path before it goes in front.
+/// `LoadImage` does not do it, and refuses short-form paths.
+fn full_path(target: &[u8], own: &[u8]) -> Vec<u8> {
+    let target_nodes = nodes(target);
+    let Some(&(_, _, partition)) = target_nodes.first() else {
+        return target.to_vec();
+    };
+    let own_nodes = nodes(own);
+    let Some(at) = own_nodes.iter().position(|&(_, _, node)| node == partition) else {
+        return target.to_vec();
+    };
+    if at == 0 {
+        // Already whole.
+        return target.to_vec();
+    }
+    let mut bytes: Vec<u8> = own_nodes[..at]
+        .iter()
+        .chain(&target_nodes)
+        .flat_map(|(_, _, node)| node.iter().copied())
+        .collect();
+    bytes.extend([END, 0xff, 4, 0]);
+    bytes
+}
+
 fn has_file(path: &[u8]) -> bool {
     nodes(path)
         .iter()
@@ -211,14 +242,17 @@ fn describe_firmware(report: &mut Report) {
         .and_then(|image| image.file_path().map(|path| path.to_string()));
 }
 
-/// The entry named in the probe's load options (`Boot0002`), if it can be read.
-fn requested_entry() -> Option<(u16, LoadOption)> {
+/// The entry named in the probe's load options (`Boot0002`), if it can be read and
+/// is not the probe itself.
+fn requested_entry(boot_current: Option<u16>) -> Option<(u16, LoadOption)> {
     let image = boot::open_protocol_exclusive::<LoadedImage>(boot::image_handle()).ok()?;
     let options = image.load_options_as_cstr16().ok()?.to_string();
     let number = options.trim().strip_prefix("Boot")?.get(..4)?;
-    let entry = u16::from_str_radix(number, 16).ok()?;
+    let entry = u16::from_str_radix(number, 16)
+        .ok()
+        .filter(|&entry| Some(entry) != boot_current)?;
     let option = parse_load_option(&global_variable(&format!("Boot{entry:04X}"))?)?;
-    Some((entry, option))
+    option.bootable.then_some((entry, option))
 }
 
 /// The counter's frequency, from how much it moves while the firmware waits 10 ms.
@@ -237,7 +271,7 @@ const CATEGORY: u32 = 0x1f00;
 struct LoadOption {
     description: String,
     device_path: Vec<u8>,
-    /// Active, and in the boot category.
+    /// Active, in the boot category, and not a probe.
     bootable: bool,
 }
 
@@ -273,10 +307,14 @@ fn parse_load_option(bytes: &[u8]) -> Option<LoadOption> {
         }
         units.push(unit);
     }
+    let description = String::from_utf16_lossy(&units);
     Some(LoadOption {
-        description: String::from_utf16_lossy(&units),
+        // Another probe entry would only start the probe again.
+        bootable: attributes & ACTIVE != 0
+            && attributes & CATEGORY == 0
+            && description != ENTRY_DESCRIPTION,
+        description,
         device_path: bytes.get(offset..offset + path_len)?.to_vec(),
-        bootable: attributes & ACTIVE != 0 && attributes & CATEGORY == 0,
     })
 }
 

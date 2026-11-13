@@ -9,7 +9,8 @@
 //!    keeps PID 1 and never knows the difference.
 //!
 //! It must never stop the system from booting: if the recorder cannot start, the boot
-//! goes on without it. The real init is the program named by the `kokuin_init`
+//! goes on without it. When an initramfs hook already started the recorder, it only
+//! hands over to the real init. The real init is the program named by the `kokuin_init`
 //! kernel parameter (the kernel hands unknown parameters without a dot to init as
 //! environment variables), else the first of the usual inits that exists.
 
@@ -35,7 +36,10 @@ fn main() {
     let arguments: Vec<OsString> = env::args_os().skip(1).collect();
     let requested = env::var_os(REAL_INIT_PARAMETER);
 
-    if let Err(err) = start_recorder() {
+    // Started from the initramfs, a recorder may already be running.
+    if !recorder_running()
+        && let Err(err) = start_recorder()
+    {
         eprintln!("kokuin-init: the boot is not recorded: cannot start {RECORDER}: {err}");
     }
     for init in inits(requested, |path| path.is_file()) {
@@ -52,6 +56,25 @@ fn main() {
     }
     // PID 1 exiting makes the kernel panic: at least the reason is on the console.
     eprintln!("kokuin-init: no init program could be started");
+}
+
+/// The abstract socket a running recorder holds (`kokuin_recorder::instance::NAME`).
+const RECORDER_NAME: &[u8] = b"kokuin-recorder";
+
+/// Whether a recorder is running: then it holds its socket name.
+fn recorder_running() -> bool {
+    use std::os::{
+        linux::net::SocketAddrExt,
+        unix::net::{SocketAddr, UnixListener},
+    };
+    let Ok(address) = SocketAddr::from_abstract_name(RECORDER_NAME) else {
+        return false;
+    };
+    // Taking the name and dropping it at once leaves it free for the recorder.
+    matches!(
+        UnixListener::bind_addr(&address),
+        Err(err) if err.kind() == std::io::ErrorKind::AddrInUse
+    )
 }
 
 /// Starts the recorder, without waiting for it. The real init adopts it.

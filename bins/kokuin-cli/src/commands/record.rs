@@ -17,11 +17,13 @@ use kokuin_kb::Kb;
 use kokuin_recorder::{
     Recording,
     config::{self, Config},
+    instance,
 };
 use kokuin_sources::{
     Context,
     clock::{self, ClockFile},
-    ftrace, kmsg, proc_events,
+    ftrace, kmsg,
+    proc_events::{self, StartedFrom},
 };
 use rustix::mount::MountFlags;
 
@@ -31,8 +33,23 @@ use crate::{Failure, boots, records};
 /// starting init; without one, the init system mounts it early).
 const PROC_WAIT: Duration = Duration::from_secs(30);
 
-pub fn run() -> Result<(), Failure> {
-    let result = record();
+pub fn run(initramfs: bool) -> Result<(), Failure> {
+    // A boot can start the recorder twice (from the initramfs, then from kokuin-init):
+    // the second one leaves it to the first.
+    let _claim = match instance::claim() {
+        Ok(claim) => claim,
+        Err(err) if err.kind() == std::io::ErrorKind::AddrInUse => return Ok(()),
+        Err(err) => {
+            log(4, &format!("cannot claim the recorder's name: {err}"));
+            return Err(err.into());
+        }
+    };
+    let from = if initramfs {
+        StartedFrom::Initramfs
+    } else {
+        StartedFrom::Init
+    };
+    let result = record(from);
     match &result {
         Ok(dir) => log(5, &format!("boot recorded in {dir}")),
         Err(Failure(message)) => log(4, &format!("recording failed: {message}")),
@@ -40,7 +57,7 @@ pub fn run() -> Result<(), Failure> {
     result.map(|_| ())
 }
 
-fn record() -> Result<String, Failure> {
+fn record(from: StartedFrom) -> Result<String, Failure> {
     // Leave the session of init: its signals are not for the recorder.
     let _ = rustix::process::setsid();
     // The kernel starts init with no file mode mask: without one, everything saved
@@ -52,7 +69,9 @@ fn record() -> Result<String, Failure> {
         Config::default()
     });
 
-    let recording = kokuin_recorder::record(&config.recorder, Kb::embedded());
+    // Started from the initramfs, the recorder ends in the real root filesystem: from
+    // here on, paths are the real system's.
+    let recording = kokuin_recorder::record(&config.recorder, Kb::embedded(), from);
     publish(&recording)?;
     let cmdline = fs::read_to_string("/proc/cmdline").unwrap_or_default();
     if kokuin_bootcfg::is_deep_boot(&cmdline) {

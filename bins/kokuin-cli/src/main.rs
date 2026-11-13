@@ -158,9 +158,14 @@ enum Command {
         #[arg(value_enum, default_value_t = SchemaKind::Record)]
         of: SchemaKind,
     },
-    /// Record the current boot. Started by kokuin-init at the beginning of a boot.
+    /// Record the current boot. Started by kokuin-init, or by an initramfs hook, at
+    /// the beginning of a boot.
     #[command(hide = true)]
-    Record,
+    Record {
+        /// Started from the initramfs: follow the switch to the real root.
+        #[arg(long)]
+        initramfs: bool,
+    },
 }
 
 /// The JSON documents kokuin-cli prints.
@@ -246,7 +251,7 @@ fn main() -> ExitCode {
         Command::Probe { command, dry_run } => commands::probe::run(command, dry_run),
         Command::Schema { of } => commands::schema::run(of),
         Command::Diff { a, b, json } => commands::diff::run(a, b, json),
-        Command::Record => commands::record::run(),
+        Command::Record { initramfs } => commands::record::run(initramfs),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

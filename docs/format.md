@@ -23,7 +23,7 @@ milestones relate, and the identifiers that have a fixed meaning.
 | `kokuin-cli show [BOOT] --json` | A whole record. `BOOT` is `last`, `-2`, the start of a boot id, a record file (`-` for standard input), or a `--raw` folder (rebuilt). Without it: the current boot's recording if it was recorded, else a record rebuilt from what the system still remembers. |
 | `kokuin-cli timeline [BOOT] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
 | `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
-| `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs, and the state of the boot recorder (`recorder`: `installed`, `enabled`, `current_boot`, `boots_recorded`). |
+| `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs, and the state of the boot recorder (`recorder`: `installed`, `enabled`, `deep_armed`, `current_boot`, `boots_recorded`). |
 | `kokuin-cli schema` | The JSON Schema. |
 
 Run them as root to get every source: the TPM log, the kernel log and some firmware

@@ -101,7 +101,18 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Stop recording boots: removes what `enable` added.
+    /// Record the next boot with kernel tracing: the duration of each kernel init
+    /// function, and the name of every program, even the shortest. Once that boot is
+    /// recorded, these settings go away by themselves.
+    Deep {
+        /// Only show what would change.
+        #[arg(long)]
+        dry_run: bool,
+        /// Disarm a deep boot that has not happened yet.
+        #[arg(long)]
+        cancel: bool,
+    },
+    /// Stop recording boots: removes what `enable` and `deep` added.
     Disable {
         /// Only show what would change.
         #[arg(long)]
@@ -182,6 +193,7 @@ fn main() -> ExitCode {
         Command::Explain { id, json } => commands::explain::run(id, json),
         Command::Enable { dry_run } => commands::enable::enable(dry_run),
         Command::Disable { dry_run } => commands::enable::disable(dry_run),
+        Command::Deep { dry_run, cancel } => commands::enable::deep(dry_run, cancel),
         Command::Schema => commands::schema::run(),
         Command::Record => commands::record::run(),
     };

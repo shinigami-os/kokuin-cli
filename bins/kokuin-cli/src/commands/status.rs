@@ -85,6 +85,7 @@ pub fn run(json: bool) -> Result<(), Failure> {
             "recorder": {
                 "installed": recorder.installed,
                 "enabled": recorder.enabled,
+                "deep_armed": recorder.deep_armed,
                 "current_boot": recorder.current_boot,
                 "boots_recorded": recorder.boots_recorded,
             },
@@ -180,6 +181,8 @@ struct RecorderState {
     /// kokuin-init is in the bootloader configuration; `None` when kokuin cannot
     /// read that configuration.
     enabled: Option<bool>,
+    /// The next boot is a deep one.
+    deep_armed: bool,
     /// Where the recording of this boot is, if it was recorded.
     current_boot: Option<String>,
     boots_recorded: usize,
@@ -196,6 +199,7 @@ impl RecorderState {
                 .grub
                 .is_some()
                 .then(|| kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Recording)),
+            deep_armed: kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Deep),
             current_boot: boots::current().map(|b| b.dir.display().to_string()),
             boots_recorded: boots::list().len(),
         }
@@ -230,6 +234,12 @@ impl RecorderState {
                 "  {} enabled or not: kokuin cannot read this bootloader's configuration",
                 paint(style::DIM, "?")
             ),
+        }
+        if self.deep_armed {
+            println!(
+                "  {} a deep boot is armed: the next boot is recorded with kernel tracing",
+                mark(true)
+            );
         }
         match &self.current_boot {
             Some(dir) => println!("  {} this boot was recorded, in {dir}", mark(true)),

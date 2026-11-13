@@ -1,7 +1,7 @@
 +++
 title = "How kokuin records a boot"
 summary = "kokuin-init runs first, starts the recorder, then becomes the real init; the recorder watches every process and the kernel log until the desktop is ready."
-related = ["init.pid1", "init.proc_events", "kernel.kmsg", "kernel.cmdline", "init.procfs"]
+related = ["init.pid1", "init.proc_events", "kernel.kmsg", "kernel.cmdline", "init.procfs", "kernel.ftrace", "kernel.initcall"]
 +++
 
 After a boot, most of what happened is gone: processes that exited leave no trace,
@@ -57,6 +57,22 @@ The recorder stops `settle_secs` (30 s) after the desktop is ready, or at
 
 It keeps the last `keep_boots` (10) boots. See them with `kokuin-cli list`, and one
 of them with `kokuin-cli show last`.
+
+## Deep mode
+
+`sudo kokuin-cli deep` records the next boot in more detail. It adds kernel
+parameters for that boot only:
+
+- `initcall_debug`: the kernel logs each of its init functions with its duration
+  (see `kernel.initcall`). `kokuin-cli show` then lists the slowest ones.
+- `trace_event=sched:sched_process_exec`: the kernel's tracer (see `kernel.ftrace`)
+  records every program started, so even the shortest processes get a name.
+- `log_buf_len=16M`: a larger kernel log, for these thousands of lines.
+
+At the end of that boot, the recorder saves the trace and removes these parameters:
+the next boots are normal again. Logging every init function makes the boot a
+little slower, so its timings are a little longer than usual.
+`kokuin-cli deep --cancel` disarms a deep boot that has not happened yet.
 
 ## What it costs
 

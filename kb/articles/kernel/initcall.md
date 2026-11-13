@@ -19,5 +19,5 @@ initcall pci_init+0x0/0x40 returned 0 after 1523 usecs
 ```
 
 This is the best way to find which driver slows the kernel stage down. kokuin's deep
-mode adds this parameter for one boot. Initcalls that wait for hardware (probing a
+mode (`sudo kokuin-cli deep`) adds this parameter for one boot. Initcalls that wait for hardware (probing a
 disk, a USB hub, a missing device) are usual suspects.

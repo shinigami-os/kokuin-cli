@@ -837,6 +837,7 @@ dependencies = [
  "flate2",
  "jiff",
  "kokuin-model",
+ "kokuin-probe-format",
  "rustix",
  "serde",
  "serde_json",

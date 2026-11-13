@@ -15,6 +15,7 @@ mod binary;
 pub mod clock;
 mod context;
 pub mod efi;
+pub mod efi_probe;
 pub mod efivars;
 pub mod fpdt;
 pub mod ftrace;
@@ -220,6 +221,7 @@ pub fn sources(init: Option<&str>) -> Vec<Box<dyn Source>> {
         Box::new(fpdt::Fpdt),
         Box::new(tpm::TpmEventLog),
         Box::new(efivars::EfiVars),
+        Box::new(efi_probe::EfiProbe),
         Box::new(kmsg::Kmsg),
         Box::new(proc_events::ProcEvents),
         Box::new(procfs::Procfs),

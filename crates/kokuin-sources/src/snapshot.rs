@@ -44,6 +44,9 @@ pub struct Snapshot {
     pub boot_epoch_unix_ns: Option<i64>,
     /// Clock ticks per second, the unit of process times in `/proc`.
     pub clock_ticks_per_second: u64,
+    /// The CPU's time counter read with the boot clock, if it was asked for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tsc: Option<TscSample>,
     /// Whether each tested path existed.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub exists: BTreeMap<String, bool>,
@@ -62,6 +65,27 @@ pub struct Snapshot {
     /// Commands run, in order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<RecordedCommand>,
+}
+
+/// The CPU's time counter (TSC) and the boot clock, read at the same moment, with
+/// the counter's frequency: enough to place any counter value on the boot clock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TscSample {
+    /// The counter.
+    pub tsc: u64,
+    /// The boot clock (`CLOCK_MONOTONIC`) at the same moment, in ns.
+    pub mono_ns: i64,
+    /// Counter ticks per second.
+    pub hz: u64,
+}
+
+impl TscSample {
+    /// The boot clock time, in ns, when the counter read `tsc`.
+    pub fn boot_ns(&self, tsc: u64) -> i64 {
+        let ticks_before = i128::from(self.tsc) - i128::from(tsc);
+        let ns_before = ticks_before * 1_000_000_000 / i128::from(self.hz.max(1));
+        i64::try_from(i128::from(self.mono_ns) - ns_before).unwrap_or(i64::MIN)
+    }
 }
 
 /// An error met while reading a path.

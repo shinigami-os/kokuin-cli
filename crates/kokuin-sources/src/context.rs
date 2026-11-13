@@ -12,7 +12,7 @@ use rustix::{
     time::{ClockId, clock_gettime},
 };
 
-use crate::snapshot::{self, Recorder, Snapshot};
+use crate::snapshot::{self, Recorder, Snapshot, TscSample};
 
 /// Where the sources read from: the running system, a directory laid out like one, or
 /// a snapshot saved earlier.
@@ -280,6 +280,23 @@ impl Context {
         btime.trim().parse::<i64>().ok().map(|s| s * 1_000_000_000)
     }
 
+    /// The CPU's time counter read with the boot clock, to place counter values (the
+    /// EFI probe's) on the boot clock. Live, it takes 50 ms to measure the counter's
+    /// frequency; a snapshot remembers it. `None` on CPUs without such a counter.
+    pub fn tsc_sample(&self) -> Option<TscSample> {
+        match &self.origin {
+            Origin::Live(recorder) => {
+                let sample = live_tsc_sample()?;
+                if let Some(recorder) = recorder {
+                    recorder.update(|s| s.tsc = Some(sample));
+                }
+                Some(sample)
+            }
+            Origin::Snapshot(snapshot) => snapshot.tsc,
+            Origin::Directory => None,
+        }
+    }
+
     /// Converts a wall-clock time (ns since the Unix epoch) to the boot clock.
     pub fn wall_to_boot_ns(&self, unix_ns: i64) -> Option<i64> {
         Some(unix_ns - self.boot_epoch_unix_ns()?)
@@ -365,6 +382,41 @@ fn live_now_unix_ns() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX))
+}
+
+/// The CPU's time counter (TSC).
+#[cfg(target_arch = "x86_64")]
+#[allow(unsafe_code)]
+fn tsc() -> u64 {
+    // SAFETY: `rdtsc` only reads the time stamp counter, which every x86-64 CPU has;
+    // it touches no memory.
+    unsafe { core::arch::x86_64::_rdtsc() }
+}
+
+/// Reads the counter with the boot clock, twice, 50 ms apart: the second reading,
+/// with the frequency measured between the two.
+#[cfg(target_arch = "x86_64")]
+fn live_tsc_sample() -> Option<TscSample> {
+    let read = || {
+        let mono = clock_gettime(ClockId::Monotonic);
+        (tsc(), mono.tv_sec * 1_000_000_000 + mono.tv_nsec)
+    };
+    let (tsc_before, mono_before) = read();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let (tsc, mono_ns) = read();
+    let elapsed_ns = u64::try_from(mono_ns - mono_before)
+        .ok()
+        .filter(|&ns| ns > 0)?;
+    let hz = u64::try_from(
+        u128::from(tsc.checked_sub(tsc_before)?) * 1_000_000_000 / u128::from(elapsed_ns),
+    )
+    .ok()?;
+    Some(TscSample { tsc, mono_ns, hz })
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn live_tsc_sample() -> Option<TscSample> {
+    None
 }
 
 fn live_boot_epoch_unix_ns() -> i64 {

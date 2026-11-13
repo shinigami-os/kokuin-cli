@@ -12,8 +12,8 @@ use kokuin_model::{Confidence, EventKind, SourceStatus, Stage};
 use crate::{
     Context, Observation, Source, SourceOutput,
     binary::{Reader, hex},
+    efi::{guid, parse_device_path, parse_load_option, utf16},
     report,
-    uefi::{guid, parse_device_path, parse_load_option, utf16},
 };
 
 const PATH: &str = "/sys/kernel/security/tpm0/binary_bios_measurements";
@@ -678,11 +678,7 @@ mod tests {
 
     fn sample_log() -> Vec<u8> {
         let mut log = spec_id_header();
-        log.extend(agile(
-            0,
-            EV_S_CRTM_VERSION,
-            &crate::uefi::tests::utf16z("1.0"),
-        ));
+        log.extend(agile(0, EV_S_CRTM_VERSION, &crate::efi::utf16z("1.0")));
         log.extend(agile(
             4,
             EV_EFI_ACTION,
@@ -692,8 +688,8 @@ mod tests {
             log.extend(agile(pcr, EV_SEPARATOR, &[0, 0, 0, 0]));
         }
         let mut image = vec![0u8; 24];
-        let mut path = crate::uefi::tests::file_path_node("\\EFI\\kira\\grubx64.efi");
-        path.extend(crate::uefi::tests::end_node());
+        let mut path = crate::efi::tests::file_path_node("\\EFI\\kira\\grubx64.efi");
+        path.extend(crate::efi::tests::end_node());
         image.extend((path.len() as u64).to_le_bytes());
         image.extend(path);
         log.extend(agile(4, EV_EFI_BOOT_SERVICES_APPLICATION, &image));

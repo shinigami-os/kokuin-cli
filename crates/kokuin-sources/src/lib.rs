@@ -14,6 +14,7 @@
 mod binary;
 pub mod clock;
 mod context;
+pub mod efi;
 pub mod efivars;
 pub mod fpdt;
 pub mod ftrace;
@@ -26,7 +27,6 @@ mod report;
 pub mod snapshot;
 pub mod system;
 pub mod tpm;
-mod uefi;
 
 use kokuin_model::{
     Confidence, EventKind, LogLevel, MilestoneKind, SourceReport, SourceStatus, Stage,

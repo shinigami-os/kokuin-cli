@@ -3,8 +3,9 @@
 use kokuin_model::{Confidence, EventKind, SourceStatus, Stage};
 
 use crate::{
-    Context, Observation, Source, SourceOutput, report,
-    uefi::{parse_load_option, utf16},
+    Context, Observation, Source, SourceOutput,
+    efi::{parse_load_option, utf16},
+    report,
 };
 
 const DIR: &str = "/sys/firmware/efi/efivars";
@@ -250,7 +251,10 @@ mod tests {
     use std::fs;
 
     use super::*;
-    use crate::uefi::tests::{end_node, file_path_node, utf16z};
+    use crate::efi::{
+        tests::{end_node, file_path_node},
+        utf16z,
+    };
 
     fn write_var(root: &std::path::Path, name: &str, guid: &str, value: &[u8]) {
         let dir = root.join("sys/firmware/efi/efivars");

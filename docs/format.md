@@ -75,6 +75,22 @@ sources read it, so a raw snapshot of that boot includes it:
 The details are `comm`, `cmdline`, `exe`, `uid` and `cgroup`, all optional: a
 process can exit before the recorder reads them. Times are on the boot clock.
 
+### The EFI probe
+
+`sudo kokuin-cli probe install` puts kokuin's EFI probe on the EFI system partition
+(`\EFI\kokuin\probe.efi`), with a boot entry "kokuin probe" that is not in
+`BootOrder`. `sudo kokuin-cli probe arm` sets `BootNext` to it: the next boot, and
+only it, starts the probe, which starts the usual entry. On its way, it leaves a
+volatile EFI variable, `KokuinProbe-abec3a02-ce3a-4d49-804e-61195467c9c3`: text, one
+`key=value` per line, `format=1` first (`crates/kokuin-probe-format`). It holds the
+CPU's time counter (TSC) when the probe started (`tsc_start`) and when it handed
+over (`tsc_handover`), and what the firmware set up.
+
+The TSC counts from power-on. A snapshot remembers the counter read with the boot
+clock (`snapshot.json`'s `tsc`: `tsc`, `mono_ns`, `hz`), which places these values
+on the boot clock. The probe is not signed: it is not installed when Secure Boot is
+on.
+
 ### Recorded boots
 
 Once `sudo kokuin-cli enable` was run, each boot is recorded while it happens (see
@@ -87,7 +103,7 @@ change.
 
 ## Versioning
 
-`schema_version` is `MAJOR.MINOR`. The current version is **0.2**.
+`schema_version` is `MAJOR.MINOR`. The current version is **0.4**.
 
 - A new **minor** version only adds things: optional fields, enum values, `data` keys.
   A consumer written for `X.Y` reads any `X.Z`.
@@ -98,6 +114,10 @@ change.
 
 Changes:
 
+- **0.4**: source `efi_probe`: power-on, the probe and the bootloader's start placed
+  on the boot clock, marking `firmware_start`, `bootloader_load` and
+  `bootloader_start`; `status --json`'s `recorder` gains `probe_entry` and
+  `probe_armed`.
 - **0.3**: `kokuin-cli diff --json` and its schema (`BootDiff`); `capture.method`
   `recorder_deep` in use (boots armed with `kokuin-cli deep`, with kernel init
   functions as `initcall` events).
@@ -222,6 +242,7 @@ to the event the milestone was detected from, when there is one.
 | `fpdt` | ACPI Firmware Performance Data Table (`/sys/firmware/acpi/fpdt`) | `field`, `firmware_ns` |
 | `tpm_eventlog` | TPM measured-boot event log (`/sys/kernel/security/tpm0/binary_bios_measurements`) | `pcr`, `event_type`, `path`, `variable` |
 | `efivars` | EFI variables (`/sys/firmware/efi/efivars`) | `variable`, `value`, `description`, `path` |
+| `efi_probe` | kokuin's EFI probe, on boots armed with `kokuin-cli probe arm` (see below) | `tsc`, `firmware_vendor`, `uefi_revision`, `console`, `memory_total`, `memory_usable`, `loaded_images` |
 | `dmi` | SMBIOS/DMI tables (`/sys/class/dmi/id`) | — |
 | `kmsg` | Kernel log (`/dev/kmsg`, or the boot recorder's copy) | `seq`, `facility`, plus parsed values (`driver`, `device`, `fstype`...) |
 | `proc_events` | Processes seen by the boot recorder (`/run/kokuin/recorder/processes.jsonl`): it gives `processes`, including those that exited | — |

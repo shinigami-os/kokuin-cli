@@ -44,6 +44,8 @@ sudo kokuin-cli enable      # adds kokuin-init to the kernel command line (GRUB)
 kokuin-cli list             # the recorded boots
 kokuin-cli show last        # the last one (also `-2`, or the start of a boot id)
 sudo kokuin-cli deep        # record the next boot with kernel tracing: init functions, every program
+sudo kokuin-cli probe install   # UEFI, Secure Boot off: kokuin's EFI probe, to time the firmware
+sudo kokuin-cli probe arm   # the next boot goes through it, once
 kokuin-cli diff -2 last     # what changed between two boots
 sudo kokuin-cli disable     # stop recording
 ```
@@ -68,6 +70,8 @@ JSON Schema in [schema/](schema/boot-record.schema.json) and an
 | `crates/kokuin-recorder` | The boot recorder: process events, kernel log, when to stop |
 | `crates/kokuin-bootcfg` | Adds and removes kokuin-init in the bootloader configuration |
 | `bins/kokuin-cli` | The command-line tool |
+| `bins/kokuin-probe` | The EFI probe, run before the bootloader to time the firmware (`--target x86_64-unknown-uefi`) |
+| `crates/kokuin-probe-format` | What the EFI probe leaves for Linux |
 | `bins/kokuin-init` | The tiny first program of a recorded boot, which starts the recorder, then the real init |
 | `kb/articles/` | Explanations, one Markdown file per topic (`firmware/fpdt.md` is `firmware.fpdt`) |
 | `kb/rules/` | Rules recognizing kernel log messages and programs |
@@ -84,6 +88,7 @@ needs the files in `kb/`: no Rust.
 cargo test                                      # all tests
 KOKUIN_UPDATE_SCHEMA=1 cargo test -p kokuin-model   # regenerate schema/ after a model change
 cargo build --release --target x86_64-unknown-linux-musl   # static binaries
+cargo build --release --target x86_64-unknown-uefi -p kokuin-probe   # the EFI probe
 ```
 
 To try kokuin-cli on other systems, see [the test VMs](tests/vm/README.md).

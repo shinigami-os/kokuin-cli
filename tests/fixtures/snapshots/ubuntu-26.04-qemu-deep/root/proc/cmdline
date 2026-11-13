@@ -1,0 +1,1 @@
+BOOT_IMAGE=/vmlinuz-7.0.0-38-generic root=UUID=a9c87573-c170-44a0-8c14-09fcc03a56a9 ro console=tty1 console=ttyS0 init=/usr/lib/kokuin/kokuin-init initcall_debug log_buf_len=16M trace_event=sched:sched_process_exec trace_clock=mono trace_buf_size=8M kokuin.deep=1 init=/usr/lib/kokuin/kokuin-init

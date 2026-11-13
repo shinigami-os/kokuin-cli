@@ -1,0 +1,61 @@
+Name:	systemd-udevd
+Umask:	0022
+State:	S (sleeping)
+Tgid:	687
+Ngid:	0
+Pid:	687
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	256
+Groups:	 
+NStgid:	687
+NSpid:	687
+NSpgid:	687
+NSsid:	687
+Kthread:	0
+VmPeak:	   39976 kB
+VmSize:	   39976 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	   13980 kB
+VmRSS:	   13980 kB
+RssAnon:	    4716 kB
+RssFile:	    9264 kB
+RssShmem:	       0 kB
+VmData:	    3956 kB
+VmStk:	     132 kB
+VmExe:	     388 kB
+VmLib:	   11232 kB
+VmPTE:	     104 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+Threads:	1
+SigQ:	1/9668
+SigPnd:	0000000000000000
+ShdPnd:	0000000000010000
+SigBlk:	0008000000014003
+SigIgn:	0000000000001000
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	000001f7fdffffff
+CapEff:	000001f7fdffffff
+CapBnd:	000001f7fdffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	17
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	3
+Cpus_allowed_list:	0-1
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	680
+nonvoluntary_ctxt_switches:	501
+x86_Thread_features:	
+x86_Thread_features_locked:	

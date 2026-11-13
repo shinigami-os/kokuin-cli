@@ -1,0 +1,3 @@
+exec=/usr/sbin/cloud-init-hotplugd
+argv_0=/usr/sbin/cloud-init-hotplugd
+pidfile=/run/cloud-init-hotplugd.pid

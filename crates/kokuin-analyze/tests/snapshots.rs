@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use kokuin_kb::Kb;
 use kokuin_model::{
-    BootRecord, CaptureInfo, CaptureMethod, Confidence, EndReason, Event, MilestoneKind as M,
-    SourceStatus,
+    BootRecord, CaptureInfo, CaptureMethod, Confidence, EndReason, Event, EventKind,
+    MilestoneKind as M, SourceStatus,
 };
 use kokuin_sources::Context;
 
@@ -317,4 +317,30 @@ fn diff_of_a_rebuilt_and_a_recorded_boot() {
             .iter()
             .any(|s| s.a_ns.is_some() && s.b_ns.is_some())
     );
+}
+
+/// Boots armed with `kokuin-cli deep`: kernel init functions timed, every program
+/// named by the kernel's trace.
+#[test]
+fn deep_boots() {
+    for name in ["alpine-3.24-qemu-deep", "ubuntu-26.04-qemu-deep"] {
+        let record = snapshot(name);
+        assert_recorded(&record);
+        let cmdline = record.boot.kernel.cmdline.as_deref().unwrap_or_default();
+        assert!(cmdline.contains("kokuin.deep=1"), "{name}");
+        let initcalls = record
+            .events
+            .iter()
+            .filter(|e| e.kind == EventKind::Initcall && e.dur_ns.is_some())
+            .count();
+        assert!(initcalls > 100, "{name}: {initcalls} timed initcalls");
+        // initcall_debug's lines did not push the start of the log out.
+        assert_eq!(status(&record, "kmsg"), SourceStatus::Ok, "{name}");
+        let unnamed = record
+            .processes
+            .iter()
+            .filter(|p| p.comm.is_empty())
+            .count();
+        assert_eq!(unnamed, 0, "{name}: every program named by the trace");
+    }
 }

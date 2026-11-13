@@ -1,0 +1,5 @@
+exec=/sbin/syslogd
+argv_0=/sbin/syslogd
+argv_1=-t
+argv_2=-n
+pidfile=/run/syslogd.pid

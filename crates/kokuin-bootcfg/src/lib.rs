@@ -20,10 +20,16 @@ use std::{
 /// Where kokuin-init is installed.
 pub const KOKUIN_INIT: &str = "/usr/lib/kokuin/kokuin-init";
 
-/// The kernel parameters that make the kernel start kokuin-init. `current_init` is
-/// the `init=` already on the command line, if any: kokuin-init will start it.
+/// Asks the initramfs hooks to start the recorder (`dist/initramfs/`). A dotted
+/// parameter: the kernel does not hand it to init.
+pub const RECORD_MARKER: &str = "kokuin.record=1";
+
+/// The kernel parameters that record a boot: the initramfs hooks start the recorder
+/// when they see [`RECORD_MARKER`], else the kernel starts kokuin-init, which does.
+/// `current_init` is the `init=` already on the command line, if any: kokuin-init
+/// will start it.
 pub fn parameters(current_init: Option<&str>) -> String {
-    let mut parameters = format!("init={KOKUIN_INIT}");
+    let mut parameters = format!("{RECORD_MARKER} init={KOKUIN_INIT}");
     if let Some(init) = current_init.filter(|init| *init != KOKUIN_INIT) {
         parameters.push_str(&format!(" kokuin_init={init}"));
     }
@@ -227,21 +233,27 @@ mod tests {
 
     #[test]
     fn keeps_an_existing_init() {
-        assert_eq!(parameters(None), "init=/usr/lib/kokuin/kokuin-init");
+        assert_eq!(
+            parameters(None),
+            "kokuin.record=1 init=/usr/lib/kokuin/kokuin-init"
+        );
         assert_eq!(
             parameters(Some("/sbin/openrc-init")),
-            "init=/usr/lib/kokuin/kokuin-init kokuin_init=/sbin/openrc-init"
+            "kokuin.record=1 init=/usr/lib/kokuin/kokuin-init kokuin_init=/sbin/openrc-init"
         );
         assert_eq!(
             parameters(Some(KOKUIN_INIT)),
-            "init=/usr/lib/kokuin/kokuin-init"
+            "kokuin.record=1 init=/usr/lib/kokuin/kokuin-init"
         );
     }
 
     #[test]
     fn a_deep_boot_is_marked() {
         let parameters = deep_parameters(None);
-        assert!(parameters.starts_with("init=/usr/lib/kokuin/kokuin-init initcall_debug "));
+        assert!(
+            parameters
+                .starts_with("kokuin.record=1 init=/usr/lib/kokuin/kokuin-init initcall_debug ")
+        );
         assert!(is_deep_boot(&format!("ro quiet {parameters}")));
         assert!(!is_deep_boot("ro quiet kokuin.deep=0"));
     }

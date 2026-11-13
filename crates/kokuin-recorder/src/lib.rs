@@ -11,8 +11,10 @@
 
 pub mod cn_proc;
 pub mod config;
+pub mod instance;
 pub mod kmsg;
 pub mod processes;
+pub mod root;
 pub mod watch;
 
 use std::{thread, time::Duration};
@@ -22,7 +24,7 @@ use kokuin_model::EndReason;
 use kokuin_sources::{
     Context, ProcessInfo,
     clock::ClockSample,
-    proc_events::{Line, WatchMethod},
+    proc_events::{Line, StartedFrom, WatchMethod},
     procfs,
 };
 use rustix::time::{ClockId, clock_gettime};
@@ -33,6 +35,7 @@ use crate::{
     config::RecorderConfig,
     kmsg::KmsgFollower,
     processes::{Poller, Seen, Tracker},
+    root::RootFollower,
 };
 
 /// How long to wait for the kernel to confirm the subscription to process events.
@@ -62,9 +65,14 @@ pub fn now_ns() -> i64 {
     t.tv_sec * 1_000_000_000 + t.tv_nsec
 }
 
-/// Records until the desktop is ready and settled, or until the timeout.
-pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
+/// Records until the desktop is ready and settled, or until the timeout. Started
+/// from the initramfs, it follows the switch to the real root filesystem.
+pub fn record(config: &RecorderConfig, kb: &Kb, from: StartedFrom) -> Recording {
     let ctx = Context::live();
+    let mut follower = match from {
+        StartedFrom::Initramfs => RootFollower::new().ok(),
+        StartedFrom::Init => None,
+    };
     let kmsg = KmsgFollower::start().ok();
     let seconds = |s: u64| i64::try_from(s.saturating_mul(1_000_000_000)).unwrap_or(i64::MAX);
     let mut watch = Watch::new(seconds(config.settle_secs), seconds(config.timeout_secs));
@@ -79,7 +87,11 @@ pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
     let mut lines = vec![Line::Started {
         t_ns: now_ns(),
         method,
-        handover_ns: handover_ns(&ctx),
+        handover_ns: match from {
+            StartedFrom::Init => handover_ns(&ctx),
+            StartedFrom::Initramfs => None,
+        },
+        from,
     }];
     let running = processes::running(&ctx);
     let listed_at = now_ns();
@@ -95,11 +107,27 @@ pub fn record(config: &RecorderConfig, kb: &Kb) -> Recording {
         None => Watcher::Polling(Poller::new(ctx.clone(), &running)),
     };
 
+    // The last time PID 1 started a program: the initramfs's switch to the real
+    // root ends with PID 1 starting the real init.
+    let mut init_exec_ns = None;
     let end_reason = loop {
+        // Before anything else: once the switch happened, the end of the recording
+        // must be written in the real root.
+        if let Some(root) = follower.as_mut().filter(|root| root.switched()) {
+            let t_ns = init_exec_ns.unwrap_or_else(now_ns);
+            if root.follow().is_ok() {
+                lines.push(Line::RootSwitched { t_ns });
+            }
+            // Followed or not, there is only one switch to watch for.
+            follower = None;
+        }
         if let Some(reason) = watch.end_reason(now_ns()) {
             break reason;
         }
         for (line, info) in watcher.next() {
+            if let Line::Exec { t_ns, pid: 1, .. } = &line {
+                init_exec_ns = Some(*t_ns);
+            }
             if let (Some(info), Line::Exec { t_ns, .. }) = (&info, &line) {
                 observe(&mut watch, kb, *t_ns, info);
             }

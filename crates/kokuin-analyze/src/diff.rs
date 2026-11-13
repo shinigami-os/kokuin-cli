@@ -20,6 +20,16 @@ const MIN_CHANGE_NS: i64 = 10_000_000;
 pub fn diff(a: &BootRecord, b: &BootRecord) -> BootDiff {
     let programs_a = programs(a);
     let programs_b = programs(b);
+    // Shown with the longest name seen: the full one where it could be read.
+    let only_in = |these: &BTreeMap<String, String>, others: &BTreeMap<String, String>| {
+        these
+            .iter()
+            .filter(|(comm, _)| !others.contains_key(*comm))
+            .map(|(_, name)| name.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
     BootDiff {
         schema_version: kokuin_model::SCHEMA_VERSION.to_owned(),
         a: side(a),
@@ -27,8 +37,8 @@ pub fn diff(a: &BootRecord, b: &BootRecord) -> BootDiff {
         milestones: milestones(a, b),
         stages: stages(a, b),
         steps: steps(a, b),
-        new_programs: programs_b.difference(&programs_a).cloned().collect(),
-        gone_programs: programs_a.difference(&programs_b).cloned().collect(),
+        new_programs: only_in(&programs_b, &programs_a),
+        gone_programs: only_in(&programs_a, &programs_b),
     }
 }
 
@@ -156,14 +166,19 @@ fn steps(a: &BootRecord, b: &BootRecord) -> Vec<StepChange> {
     changes
 }
 
-/// The programs a boot ran, by name. Unnamed processes are left out.
-fn programs(record: &BootRecord) -> BTreeSet<String> {
-    record
-        .processes
-        .iter()
-        .filter(|p| !p.comm.is_empty())
-        .map(|p| display_name(p).into_owned())
-        .collect()
+/// The programs a boot ran, by the kernel's name (`comm`, cut to 15 bytes, the same
+/// from one boot to the next), with the longest name known for each. Unnamed
+/// processes are left out.
+fn programs(record: &BootRecord) -> BTreeMap<String, String> {
+    let mut programs: BTreeMap<String, String> = BTreeMap::new();
+    for process in record.processes.iter().filter(|p| !p.comm.is_empty()) {
+        let name = display_name(process);
+        let known = programs.entry(process.comm.clone()).or_default();
+        if name.len() > known.len() {
+            *known = name.into_owned();
+        }
+    }
+    programs
 }
 
 #[cfg(test)]
@@ -270,5 +285,14 @@ mod tests {
         assert_eq!(diff.steps[1].b_ns, None);
         assert_eq!(diff.new_programs, ["new-tool"]);
         assert_eq!(diff.gone_programs, ["old-tool"]);
+    }
+
+    #[test]
+    fn a_program_named_in_full_or_cut_is_the_same() {
+        let a = record(12_000_000_000, &[], &["systemd-run-gen"]);
+        let mut b = record(12_000_000_000, &[], &["systemd-run-gen"]);
+        b.processes[0].exe = Some("/usr/lib/systemd/systemd-run-generator".into());
+        let diff = diff(&a, &b);
+        assert!(diff.new_programs.is_empty() && diff.gone_programs.is_empty());
     }
 }

@@ -23,7 +23,12 @@ pub fn build(ctx: &Context) -> BootRecord {
     };
     let mut record = kokuin_analyze::build_record(collected, capture, Kb::embedded());
     if let Some(reason) = recording_end(&record) {
-        record.capture.method = CaptureMethod::Recorder;
+        let cmdline = record.boot.kernel.cmdline.as_deref().unwrap_or_default();
+        record.capture.method = if kokuin_bootcfg::is_deep_boot(cmdline) {
+            CaptureMethod::RecorderDeep
+        } else {
+            CaptureMethod::Recorder
+        };
         record.capture.end_reason = Some(reason);
     }
     record

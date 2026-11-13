@@ -95,7 +95,9 @@ fn header(record: &BootRecord) {
     let capture = match record.capture.method {
         CaptureMethod::PostHoc => "rebuilt after boot: processes that already exited are missing",
         CaptureMethod::Recorder => "recorded live during boot",
-        CaptureMethod::RecorderDeep => "recorded live during boot, with kernel tracing",
+        CaptureMethod::RecorderDeep => {
+            "recorded live during boot, with kernel tracing (which makes it a little slower)"
+        }
         CaptureMethod::Unknown => "unknown method",
     };
     let end = match record.capture.end_reason {

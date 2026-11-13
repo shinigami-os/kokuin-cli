@@ -12,6 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use kokuin_bootcfg::{Section, System};
 use kokuin_kb::Kb;
 use kokuin_recorder::{
     Recording,
@@ -20,8 +21,9 @@ use kokuin_recorder::{
 use kokuin_sources::{
     Context,
     clock::{self, ClockFile},
-    kmsg, proc_events,
+    ftrace, kmsg, proc_events,
 };
+use rustix::mount::MountFlags;
 
 use crate::{Failure, boots, records};
 
@@ -52,6 +54,13 @@ fn record() -> Result<String, Failure> {
 
     let recording = kokuin_recorder::record(&config.recorder, Kb::embedded());
     publish(&recording)?;
+    let cmdline = fs::read_to_string("/proc/cmdline").unwrap_or_default();
+    if kokuin_bootcfg::is_deep_boot(&cmdline) {
+        if let Err(Failure(err)) = save_trace() {
+            log(4, &format!("cannot save the kernel trace: {err}"));
+        }
+        disarm_deep_boot();
+    }
 
     let boot_id = boots::current_boot_id()?;
     let dir = boots::prepare(&boot_id)?;
@@ -86,6 +95,35 @@ fn publish(recording: &Recording) -> Result<(), Failure> {
         fs::write(clock::PATH, serde_json::to_string(&file)? + "\n")?;
     }
     Ok(())
+}
+
+/// Where the kernel's tracing is, when tracefs is mounted.
+const TRACEFS: &str = "/sys/kernel/tracing";
+
+/// Puts the kernel's trace of this deep boot where the sources read it. Mounts tracefs
+/// at its usual place if nothing did.
+fn save_trace() -> Result<(), Failure> {
+    let trace = Path::new(TRACEFS).join("trace");
+    if !trace.exists() {
+        rustix::mount::mount("tracefs", TRACEFS, "tracefs", MountFlags::empty(), None)
+            .map_err(|err| Failure(format!("cannot mount tracefs on {TRACEFS}: {err}")))?;
+    }
+    fs::write(ftrace::PATH, fs::read(&trace)?)?;
+    Ok(())
+}
+
+/// A deep boot is for one boot: the next ones are normal again.
+fn disarm_deep_boot() {
+    let result = kokuin_bootcfg::plan_disable(&System::read(), &[Section::Deep])
+        .map_err(|_| "the bootloader is not supported".to_owned())
+        .and_then(|plan| kokuin_bootcfg::apply(&plan).map_err(|err| err.to_string()));
+    match result {
+        Ok(()) => log(5, "deep boot recorded: the next boots are normal again"),
+        Err(err) => log(
+            4,
+            &format!("cannot disarm the deep boot ({err}): run `kokuin-cli deep --cancel`"),
+        ),
+    }
 }
 
 fn wait_for(path: &Path, limit: Duration) -> Result<(), Failure> {

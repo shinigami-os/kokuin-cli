@@ -4,7 +4,8 @@ use std::{io::Read, path::Path};
 
 use kokuin_kb::Kb;
 use kokuin_model::{
-    BootRecord, CaptureInfo, CaptureMethod, EndReason, MilestoneKind, SourceStatus,
+    BootRecord, CaptureInfo, CaptureMethod, EndReason, Event, FirmwareKind, MilestoneKind,
+    SourceStatus, Stage,
 };
 use kokuin_sources::{Context, format_wall_clock, proc_events};
 
@@ -116,4 +117,61 @@ pub fn warn_about_missing_sources(record: &BootRecord) {
             style.render_reset()
         );
     }
+}
+
+/// How the record was made, in words.
+pub fn capture_wording(record: &BootRecord) -> String {
+    let capture = match record.capture.method {
+        CaptureMethod::PostHoc => "rebuilt after boot: processes that already exited are missing",
+        CaptureMethod::Recorder => "recorded live during boot",
+        CaptureMethod::RecorderDeep => {
+            "recorded live during boot, with kernel tracing (which makes it a little slower)"
+        }
+        CaptureMethod::Unknown => "unknown method",
+    };
+    let end = match record.capture.end_reason {
+        Some(EndReason::Timeout) => " (stopped before the desktop was ready)",
+        _ => "",
+    };
+    format!("{capture}{end}")
+}
+
+/// The components that took part in the boot, in order.
+pub fn boot_chain(record: &BootRecord) -> Vec<String> {
+    let boot = &record.boot;
+    let mut chain = vec![match boot.machine.firmware {
+        FirmwareKind::Uefi => "UEFI".to_owned(),
+        FirmwareKind::Bios => "BIOS".to_owned(),
+        FirmwareKind::Unknown => "firmware".to_owned(),
+    }];
+    chain.extend(
+        boot.bootloader
+            .as_ref()
+            .map(|b| b.name.clone().unwrap_or(b.id.clone())),
+    );
+    chain.push(format!("Linux {}", boot.kernel.release));
+    if record.stages.iter().any(|s| s.stage == Stage::Initramfs) {
+        chain.push("initramfs".into());
+    }
+    chain.extend(
+        boot.init
+            .as_ref()
+            .map(|i| i.name.clone().unwrap_or(i.id.clone())),
+    );
+    for kind in [
+        MilestoneKind::DisplayManagerStart,
+        MilestoneKind::CompositorStart,
+    ] {
+        let process = milestone_event(record, kind)
+            .and_then(|event| event.process)
+            .and_then(|id| record.processes.iter().find(|p| p.id == id));
+        chain.extend(process.map(|p| p.comm.clone()));
+    }
+    chain
+}
+
+/// The event marking a milestone, if there is one.
+pub fn milestone_event(record: &BootRecord, kind: MilestoneKind) -> Option<&Event> {
+    let id = record.milestones.iter().find(|m| m.kind == kind)?.event?;
+    record.events.iter().find(|e| e.id == id)
 }

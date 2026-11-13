@@ -64,6 +64,22 @@ pub fn status_symbol(status: SourceStatus) -> String {
     }
 }
 
+/// The color of a stage, the same everywhere (stage bars, the TUI).
+pub fn stage_color(stage: Stage) -> anstyle::AnsiColor {
+    use anstyle::AnsiColor::*;
+    match stage {
+        Stage::Firmware => Magenta,
+        Stage::Bootloader => Blue,
+        Stage::Kernel => Cyan,
+        Stage::Initramfs => Green,
+        Stage::Init => Yellow,
+        Stage::Services => Red,
+        Stage::Graphical => BrightMagenta,
+        Stage::Session => BrightBlue,
+        _ => BrightBlack,
+    }
+}
+
 /// A short human label for a milestone.
 pub fn milestone_label(kind: MilestoneKind) -> &'static str {
     match kind {

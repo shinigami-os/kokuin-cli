@@ -5,6 +5,7 @@ use kokuin_kb::{Article, Kb};
 
 use crate::{
     Failure,
+    markdown::{self, Emphasis, LineKind},
     output::{paint, style},
 };
 
@@ -63,21 +64,11 @@ fn print_article(kb: &Kb, article: &Article) {
     println!("{}", paint(style::TITLE, &article.title));
     println!("{}", paint(style::DIM, &article.summary));
     println!();
-    let mut in_code = false;
-    for line in article.body.lines() {
-        if line.starts_with("```") {
-            in_code = !in_code;
-            continue;
-        }
-        if in_code {
-            println!("    {}", paint(style::ID, line));
-        } else if let Some(heading) = line.strip_prefix('#') {
-            println!(
-                "{}",
-                paint(style::HEADING, heading.trim_start_matches('#').trim())
-            );
-        } else {
-            println!("{}", inline_markdown(line));
+    for line in markdown::parse(&article.body) {
+        match line.kind {
+            LineKind::Heading => println!("{}", paint(style::HEADING, render(&line))),
+            LineKind::Code => println!("    {}", paint(style::ID, render(&line))),
+            LineKind::Text => println!("{}", render(&line)),
         }
     }
     if !article.related.is_empty() {
@@ -101,29 +92,16 @@ fn print_article(kb: &Kb, article: &Article) {
     }
 }
 
-/// Renders the inline Markdown of a line: `code` and **bold**.
-fn inline_markdown(line: &str) -> String {
-    let alternate = |text: &str,
-                     marker: &str,
-                     styled: &dyn Fn(&str) -> String,
-                     plain: &dyn Fn(&str) -> String| {
-        text.split(marker)
-            .enumerate()
-            .map(|(i, part)| {
-                if i % 2 == 1 {
-                    styled(part)
-                } else {
-                    plain(part)
-                }
-            })
-            .collect::<String>()
-    };
-    let bold = |text: &str| {
-        alternate(text, "**", &|part| paint(style::HEADING, part), &|part| {
-            part.to_owned()
+/// The spans of a line, with terminal colors for `code` and **bold**.
+fn render(line: &markdown::Line) -> String {
+    line.spans
+        .iter()
+        .map(|span| match span.emphasis {
+            Emphasis::Plain => span.text.clone(),
+            Emphasis::Code => paint(style::ID, &span.text),
+            Emphasis::Bold => paint(style::HEADING, &span.text),
         })
-    };
-    alternate(line, "`", &|part| paint(style::ID, part), &bold)
+        .collect()
 }
 
 #[cfg(test)]
@@ -133,8 +111,8 @@ mod tests {
     #[test]
     fn renders_inline_markdown_without_colors() {
         anstream::ColorChoice::Never.write_global();
-        let rendered = inline_markdown("a **TPM** reads `/sys/x`");
-        let plain = anstream::adapter::strip_str(&rendered).to_string();
+        let line = &markdown::parse("a **TPM** reads `/sys/x`")[0];
+        let plain = anstream::adapter::strip_str(&render(line)).to_string();
         assert_eq!(plain, "a TPM reads /sys/x");
     }
 }

@@ -1,46 +1,18 @@
 //! `timeline`: everything that happened during a boot, in order.
 
 use anstream::println;
-use kokuin_model::{Event, EventKind, Stage};
-use regex::Regex;
+use kokuin_model::Event;
 
 use crate::{
     Failure,
+    filter::Filter,
     output::{self, CONFIDENCE_LEGEND, confidence_mark, duration, paint, style, time},
     records,
 };
 
-/// Which events to show. Empty lists mean "all".
-pub struct Filter {
-    pub stages: Vec<Stage>,
-    pub sources: Vec<String>,
-    pub kinds: Vec<EventKind>,
-    pub grep: Option<String>,
-}
-
-impl Filter {
-    fn compile(&self) -> Result<impl Fn(&Event) -> bool + '_, Failure> {
-        let pattern = self
-            .grep
-            .as_deref()
-            .map(Regex::new)
-            .transpose()
-            .map_err(|err| Failure(format!("invalid --grep pattern: {err}")))?;
-        Ok(move |event: &Event| {
-            (self.stages.is_empty() || self.stages.contains(&event.stage))
-                && (self.sources.is_empty() || self.sources.contains(&event.source))
-                && (self.kinds.is_empty() || self.kinds.contains(&event.kind))
-                && pattern.as_ref().is_none_or(|re| {
-                    re.is_match(&event.title)
-                        || event.message.as_deref().is_some_and(|m| re.is_match(m))
-                })
-        })
-    }
-}
-
 pub fn run(boot: Option<String>, filter: Filter, details: bool, json: bool) -> Result<(), Failure> {
     let record = records::load(boot.as_deref())?;
-    let keep = filter.compile()?;
+    let keep = filter.matcher()?;
     let events: Vec<&Event> = record.events.iter().filter(|e| keep(e)).collect();
 
     if json {

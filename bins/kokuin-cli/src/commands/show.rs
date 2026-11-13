@@ -2,8 +2,7 @@
 
 use anstream::println;
 use kokuin_model::{
-    BootRecord, CaptureMethod, EndReason, Event, EventKind, FirmwareKind, MilestoneKind as M,
-    SourceStatus, StageSpan,
+    BootRecord, Event, EventKind, FirmwareKind, MilestoneKind as M, SourceStatus, StageSpan,
 };
 
 use crate::{
@@ -90,61 +89,9 @@ fn header(record: &BootRecord) {
     hardware.push(firmware);
     hardware.push(machine.arch.clone());
     println!("  Machine     {}", hardware.join(" · "));
-    println!("  Boot chain  {}", boot_chain(record).join(" → "));
+    println!("  Boot chain  {}", records::boot_chain(record).join(" → "));
 
-    let capture = match record.capture.method {
-        CaptureMethod::PostHoc => "rebuilt after boot: processes that already exited are missing",
-        CaptureMethod::Recorder => "recorded live during boot",
-        CaptureMethod::RecorderDeep => {
-            "recorded live during boot, with kernel tracing (which makes it a little slower)"
-        }
-        CaptureMethod::Unknown => "unknown method",
-    };
-    let end = match record.capture.end_reason {
-        Some(EndReason::Timeout) => " (stopped before the desktop was ready)",
-        _ => "",
-    };
-    println!("  Record      {capture}{end}");
-}
-
-/// The components that took part in the boot, in order.
-fn boot_chain(record: &BootRecord) -> Vec<String> {
-    let boot = &record.boot;
-    let mut chain = vec![match boot.machine.firmware {
-        FirmwareKind::Uefi => "UEFI".to_owned(),
-        FirmwareKind::Bios => "BIOS".to_owned(),
-        FirmwareKind::Unknown => "firmware".to_owned(),
-    }];
-    chain.extend(
-        boot.bootloader
-            .as_ref()
-            .map(|b| b.name.clone().unwrap_or(b.id.clone())),
-    );
-    chain.push(format!("Linux {}", boot.kernel.release));
-    if record
-        .stages
-        .iter()
-        .any(|s| s.stage == kokuin_model::Stage::Initramfs)
-    {
-        chain.push("initramfs".into());
-    }
-    chain.extend(
-        boot.init
-            .as_ref()
-            .map(|i| i.name.clone().unwrap_or(i.id.clone())),
-    );
-    for kind in [M::DisplayManagerStart, M::CompositorStart] {
-        let process = milestone_event(record, kind)
-            .and_then(|event| event.process)
-            .and_then(|id| record.processes.iter().find(|p| p.id == id));
-        chain.extend(process.map(|p| p.comm.clone()));
-    }
-    chain
-}
-
-fn milestone_event(record: &BootRecord, kind: M) -> Option<&Event> {
-    let id = record.milestones.iter().find(|m| m.kind == kind)?.event?;
-    record.events.iter().find(|e| e.id == id)
+    println!("  Record      {}", records::capture_wording(record));
 }
 
 fn stages(record: &BootRecord) {
@@ -226,19 +173,7 @@ fn stages(record: &BootRecord) {
 }
 
 fn stage_style(stage: &StageSpan) -> anstyle::Style {
-    use anstyle::AnsiColor::*;
-    let color = match stage.stage {
-        kokuin_model::Stage::Firmware => Magenta,
-        kokuin_model::Stage::Bootloader => Blue,
-        kokuin_model::Stage::Kernel => Cyan,
-        kokuin_model::Stage::Initramfs => Green,
-        kokuin_model::Stage::Init => Yellow,
-        kokuin_model::Stage::Services => Red,
-        kokuin_model::Stage::Graphical => BrightMagenta,
-        kokuin_model::Stage::Session => BrightBlue,
-        _ => BrightBlack,
-    };
-    color.on_default()
+    output::stage_color(stage.stage).on_default()
 }
 
 fn milestones(record: &BootRecord) {

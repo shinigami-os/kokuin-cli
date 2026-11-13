@@ -2,6 +2,8 @@
 
 mod boots;
 mod commands;
+mod filter;
+mod markdown;
 mod output;
 mod records;
 
@@ -210,11 +212,12 @@ fn main() -> ExitCode {
             details,
             json,
         } => {
-            let filter = commands::timeline::Filter {
+            let filter = filter::Filter {
                 stages: stage,
                 sources: source,
                 kinds: kind,
                 grep,
+                explained_only: false,
             };
             commands::timeline::run(boot, filter, details, json)
         }

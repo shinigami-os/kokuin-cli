@@ -6,6 +6,7 @@ mod filter;
 mod markdown;
 mod output;
 mod records;
+mod tui;
 
 use std::{path::PathBuf, process::ExitCode};
 
@@ -46,6 +47,13 @@ enum Command {
         /// new folder, to analyze the boot again later or on another machine.
         #[arg(long, value_name = "DIR")]
         raw: Option<PathBuf>,
+    },
+    /// Move around a boot in the terminal: stages, events, explanations.
+    Tui {
+        /// Boot to show: `last`, `-2`, a boot id (see `list`), a record file, or a
+        /// folder saved by `capture --raw`. Default: the current boot.
+        #[arg(allow_hyphen_values = true)]
+        boot: Option<String>,
     },
     /// List the recorded boots.
     List {
@@ -202,6 +210,7 @@ fn main() -> ExitCode {
             raw,
         } => commands::capture::run(output, compact, raw),
         Command::List { json } => commands::list::run(json),
+        Command::Tui { boot } => tui::run(boot),
         Command::Show { boot, json } => commands::show::run(boot, json),
         Command::Timeline {
             boot,

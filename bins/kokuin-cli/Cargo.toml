@@ -17,6 +17,7 @@ kokuin-kb = { version = "0.1.0", path = "../../crates/kokuin-kb" }
 kokuin-model = { version = "0.1.0", path = "../../crates/kokuin-model" }
 kokuin-recorder = { version = "0.1.0", path = "../../crates/kokuin-recorder" }
 kokuin-sources = { version = "0.1.0", path = "../../crates/kokuin-sources" }
+ratatui = "0.30.2"
 regex = "1.13.1"
 rustix = { version = "1.1.6", features = ["fs", "mount", "process"] }
 serde = "1.0.229"

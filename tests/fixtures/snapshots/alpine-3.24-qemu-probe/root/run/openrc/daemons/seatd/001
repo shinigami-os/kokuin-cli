@@ -1,0 +1,7 @@
+exec=/usr/bin/seatd
+argv_0=/usr/bin/seatd
+argv_1=-g
+argv_2=seat
+argv_3=-l
+argv_4=error
+pidfile=/run/seatd.pid

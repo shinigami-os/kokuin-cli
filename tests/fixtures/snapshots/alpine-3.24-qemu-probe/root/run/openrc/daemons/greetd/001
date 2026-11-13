@@ -1,0 +1,5 @@
+exec=/usr/sbin/greetd
+argv_0=/usr/sbin/greetd
+argv_1=--config
+argv_2=/etc/greetd/config.toml
+pidfile=/run/greetd.pid

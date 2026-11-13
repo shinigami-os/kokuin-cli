@@ -344,3 +344,29 @@ fn deep_boots() {
         assert_eq!(unnamed, 0, "{name}: every program named by the trace");
     }
 }
+
+/// A boot that went through kokuin's EFI probe: the stages before the kernel timed.
+#[test]
+fn probed_boot() {
+    let record = snapshot("alpine-3.24-qemu-probe");
+    assert_recorded(&record);
+    let time = |kind| milestone_time(&record, kind).unwrap_or_else(|| panic!("{kind:?}"));
+    let power_on = time(M::FirmwareStart);
+    let probe = time(M::BootloaderLoad);
+    let grub = time(M::BootloaderStart);
+    assert!(power_on < probe && probe < grub && grub < 0);
+    // The firmware took seconds; the probe itself, milliseconds.
+    assert!(probe - power_on > 1_000_000_000);
+    assert!(grub - probe < 100_000_000);
+    let measured = |stage| {
+        record
+            .stages
+            .iter()
+            .find(|s| s.stage == stage)
+            .is_some_and(|s| s.start_ns.is_some() && s.end_ns.is_some())
+    };
+    assert!(measured(kokuin_model::Stage::Firmware));
+    assert!(measured(kokuin_model::Stage::Bootloader));
+    let started = milestone_event(&record, M::BootloaderStart).unwrap();
+    assert!(started.title.contains("Alpine (GRUB)"), "{}", started.title);
+}

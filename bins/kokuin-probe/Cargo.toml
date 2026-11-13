@@ -1,0 +1,16 @@
+[package]
+name = "kokuin-probe"
+version.workspace = true
+description = "kokuin's EFI probe: runs before the bootloader, notes the time and what the firmware set up, then starts the usual boot entry"
+edition.workspace = true
+# The uefi crate needs a newer Rust than the rest of the workspace.
+rust-version = "1.91"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+kokuin-probe-format = { version = "0.1.0", path = "../../crates/kokuin-probe-format" }
+uefi = { version = "0.41.0", features = ["alloc", "global_allocator", "panic_handler"] }
+
+[lints]
+workspace = true

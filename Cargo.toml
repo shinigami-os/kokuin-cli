@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "bins/*"]
+# The EFI probe only builds for UEFI (`--target x86_64-unknown-uefi -p kokuin-probe`):
+# plain `cargo build` and `cargo test` leave it out.
+default-members = ["crates/*", "bins/kokuin-cli", "bins/kokuin-init"]
 
 [workspace.package]
 version = "0.1.0"

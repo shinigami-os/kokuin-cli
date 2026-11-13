@@ -86,6 +86,8 @@ pub fn run(json: bool) -> Result<(), Failure> {
                 "installed": recorder.installed,
                 "enabled": recorder.enabled,
                 "deep_armed": recorder.deep_armed,
+                "probe_entry": recorder.probe_entry,
+                "probe_armed": recorder.probe_armed,
                 "current_boot": recorder.current_boot,
                 "boots_recorded": recorder.boots_recorded,
             },
@@ -183,6 +185,12 @@ struct RecorderState {
     enabled: Option<bool>,
     /// The next boot is a deep one.
     deep_armed: bool,
+    /// The EFI probe's boot entry, if the probe is installed.
+    probe_entry: Option<u16>,
+    /// The next boot goes through the EFI probe.
+    probe_armed: bool,
+    /// The system booted through UEFI (the probe needs it).
+    uefi: bool,
     /// Where the recording of this boot is, if it was recorded.
     current_boot: Option<String>,
     boots_recorded: usize,
@@ -191,6 +199,7 @@ struct RecorderState {
 impl RecorderState {
     fn read() -> Self {
         let system = kokuin_bootcfg::System::read();
+        let firmware = kokuin_bootcfg::efi::Firmware::live();
         Self {
             installed: [kokuin_bootcfg::KOKUIN_INIT, enable::RECORDER]
                 .iter()
@@ -200,6 +209,9 @@ impl RecorderState {
                 .is_some()
                 .then(|| kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Recording)),
             deep_armed: kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Deep),
+            probe_entry: firmware.probe_entry().map(|entry| entry.number),
+            probe_armed: firmware.is_armed(),
+            uefi: firmware.is_uefi(),
             current_boot: boots::current().map(|b| b.dir.display().to_string()),
             boots_recorded: boots::list().len(),
         }
@@ -240,6 +252,22 @@ impl RecorderState {
                 "  {} a deep boot is armed: the next boot is recorded with kernel tracing",
                 mark(true)
             );
+        }
+        if self.uefi {
+            match (self.probe_entry, self.probe_armed) {
+                (Some(entry), true) => println!(
+                    "  {} EFI probe installed (Boot{entry:04X}), armed: the next boot goes through it",
+                    mark(true)
+                ),
+                (Some(entry), false) => println!(
+                    "  {} EFI probe installed (Boot{entry:04X}); `sudo kokuin-cli probe arm` times the next boot's firmware",
+                    mark(true)
+                ),
+                (None, _) => println!(
+                    "  {} EFI probe not installed: `sudo kokuin-cli probe install` to time the firmware",
+                    paint(style::DIM, "·")
+                ),
+            }
         }
         match &self.current_boot {
             Some(dir) => println!("  {} this boot was recorded, in {dir}", mark(true)),

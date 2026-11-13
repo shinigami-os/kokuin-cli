@@ -137,6 +137,15 @@ enum Command {
         #[arg(long)]
         cancel: bool,
     },
+    /// kokuin's EFI probe: times the firmware and the bootloader for one boot, by
+    /// running before the bootloader.
+    Probe {
+        #[command(subcommand)]
+        command: commands::probe::ProbeCommand,
+        /// Only show what would change.
+        #[arg(long, global = true)]
+        dry_run: bool,
+    },
     /// Stop recording boots: removes what `enable` and `deep` added.
     Disable {
         /// Only show what would change.
@@ -234,6 +243,7 @@ fn main() -> ExitCode {
         Command::Enable { dry_run } => commands::enable::enable(dry_run),
         Command::Disable { dry_run } => commands::enable::disable(dry_run),
         Command::Deep { dry_run, cancel } => commands::enable::deep(dry_run, cancel),
+        Command::Probe { command, dry_run } => commands::probe::run(command, dry_run),
         Command::Schema { of } => commands::schema::run(of),
         Command::Diff { a, b, json } => commands::diff::run(a, b, json),
         Command::Record => commands::record::run(),

@@ -8,12 +8,13 @@
 use std::{fs, path::Path};
 
 use anstream::println;
-use kokuin_bootcfg::{KOKUIN_INIT, Plan, PlanError, Section, System};
+use kokuin_bootcfg::{KOKUIN_INIT, Plan, PlanError, Section, System, efi::Firmware};
 use kokuin_sources::{
     Context,
     kconfig::{KernelConfig, OptionState},
 };
 
+use super::probe;
 use crate::{
     Failure, boots,
     output::{paint, style},
@@ -75,7 +76,7 @@ pub fn disable(dry_run: bool) -> Result<(), Failure> {
 pub fn deep(dry_run: bool, cancel: bool) -> Result<(), Failure> {
     if cancel {
         let plan = kokuin_bootcfg::plan_disable(&System::read(), &[Section::Deep]);
-        return change(
+        change(
             plan,
             dry_run,
             kokuin_bootcfg::DEEP_TRACING,
@@ -84,7 +85,8 @@ pub fn deep(dry_run: bool, cancel: bool) -> Result<(), Failure> {
                 done: "Done: the next boot will not be traced.",
                 needs_recorder: false,
             },
-        );
+        )?;
+        return probe::change(&Firmware::live().plan_disarm(), dry_run, "");
     }
     let parameters = kokuin_bootcfg::deep_parameters(current_init().as_deref());
     RECORDER_OPTIONS.warn_if_missing();
@@ -100,7 +102,19 @@ pub fn deep(dry_run: bool, cancel: bool) -> Result<(), Failure> {
                    slower. Once it is recorded, kokuin removes these settings by itself.",
             needs_recorder: true,
         },
-    )
+    )?;
+    // The EFI probe, when installed, times the firmware of that same boot.
+    let firmware = Firmware::live();
+    if firmware.probe_entry().is_some()
+        && let Ok(actions) = firmware.plan_arm()
+    {
+        probe::change(
+            &actions,
+            dry_run,
+            "The EFI probe is armed too: the firmware's time will be measured.",
+        )?;
+    }
+    Ok(())
 }
 
 /// What to tell around a change.
@@ -142,14 +156,8 @@ fn change(
             return Err(Failure(missing.join("; ")));
         }
     }
-    if dry_run {
-        println!("{}", paint(style::DIM, "Nothing was changed (--dry-run)."));
+    if !may_change(dry_run, "the bootloader configuration")? {
         return Ok(());
-    }
-    if !rustix::process::geteuid().is_root() {
-        return Err(Failure(
-            "changing the bootloader configuration needs root: run it with sudo".into(),
-        ));
     }
     kokuin_bootcfg::apply(&plan).map_err(|err| {
         Failure(format!(
@@ -158,6 +166,21 @@ fn change(
     })?;
     println!("{}", messages.done);
     Ok(())
+}
+
+/// Whether to make a change that was just shown: not with `--dry-run` (said so), and
+/// only as root. `what` is what the change touches, for the error.
+pub fn may_change(dry_run: bool, what: &str) -> Result<bool, Failure> {
+    if dry_run {
+        println!("{}", paint(style::DIM, "Nothing was changed (--dry-run)."));
+        return Ok(false);
+    }
+    if !rustix::process::geteuid().is_root() {
+        return Err(Failure(format!(
+            "changing {what} needs root: run it with sudo"
+        )));
+    }
+    Ok(true)
 }
 
 /// The `init=` of the running kernel's command line.

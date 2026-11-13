@@ -24,6 +24,9 @@ pub const VARIABLE: &str = "KokuinProbe";
 pub const GUID: &str = "abec3a02-ce3a-4d49-804e-61195467c9c3";
 /// Version of the format.
 pub const FORMAT: u32 = 1;
+/// The name of the probe's boot entry. The probe never starts an entry of that name:
+/// it would start itself.
+pub const ENTRY_DESCRIPTION: &str = "kokuin probe";
 
 /// What the probe saw.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

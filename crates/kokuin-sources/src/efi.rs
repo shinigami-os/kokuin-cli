@@ -39,6 +39,40 @@ pub fn guid(bytes: &[u8]) -> Option<String> {
     ))
 }
 
+/// The UEFI mixed-endian bytes of a GUID written as text, the reverse of [`guid`].
+pub fn guid_bytes(text: &str) -> Option<[u8; 16]> {
+    let hex: String = text.chars().filter(|c| *c != '-').collect();
+    if hex.len() != 32 {
+        return None;
+    }
+    let mut plain = [0u8; 16];
+    for (i, byte) in plain.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(hex.get(i * 2..i * 2 + 2)?, 16).ok()?;
+    }
+    // The first three fields are stored little-endian.
+    let mut bytes = plain;
+    bytes[..4].reverse();
+    bytes[4..6].reverse();
+    bytes[6..8].reverse();
+    Some(bytes)
+}
+
+/// A hard drive node: a GPT partition, by number, position and GUID. `start` and
+/// `size` count the disk's logical blocks.
+pub fn hard_drive_node(number: u32, start: u64, size: u64, partition_guid: [u8; 16]) -> Node {
+    let mut body = number.to_le_bytes().to_vec();
+    body.extend(start.to_le_bytes());
+    body.extend(size.to_le_bytes());
+    body.extend(partition_guid);
+    // Partition format: GPT; signature type: GUID.
+    body.extend([2, 2]);
+    Node {
+        kind: MEDIA,
+        subtype: MEDIA_HARD_DRIVE,
+        body,
+    }
+}
+
 /// What kokuin uses from a UEFI device path.
 #[derive(Debug, Default, PartialEq)]
 pub struct DevicePath {
@@ -248,21 +282,17 @@ pub(crate) mod tests {
         vec![END, 0xff, 4, 0]
     }
 
-    /// A hard drive node: partition 1 of a GPT disk, with a partition GUID.
+    /// Partition 1 of a GPT disk.
     fn hard_drive_node() -> Node {
-        let mut body = 1u32.to_le_bytes().to_vec();
-        body.extend(2048u64.to_le_bytes());
-        body.extend(1_048_576u64.to_le_bytes());
-        body.extend([
-            0x28, 0x73, 0x2a, 0xc1, 0x1f, 0xf8, 0xd2, 0x11, 0xba, 0x4b, 0x00, 0xa0, 0xc9, 0x3e,
-            0xc9, 0x3b,
-        ]);
-        body.extend([2, 2]);
-        Node {
-            kind: MEDIA,
-            subtype: MEDIA_HARD_DRIVE,
-            body,
-        }
+        let guid = guid_bytes("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").unwrap();
+        super::hard_drive_node(1, 2048, 1_048_576, guid)
+    }
+
+    #[test]
+    fn guids_go_both_ways() {
+        let text = "8be4df61-93ca-11d2-aa0d-00e098032b8c";
+        assert_eq!(guid(&guid_bytes(text).unwrap()).as_deref(), Some(text));
+        assert_eq!(guid_bytes("not a guid"), None);
     }
 
     #[test]

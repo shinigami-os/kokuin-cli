@@ -8,6 +8,7 @@
 //!
 //! Supported: GRUB. Elsewhere, [`manual_instructions`] tells how to do it by hand.
 
+pub mod efi;
 pub mod grub;
 
 use std::{

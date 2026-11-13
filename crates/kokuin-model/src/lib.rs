@@ -16,6 +16,7 @@
 //!
 //! See `docs/format.md` for the full description of the format.
 
+mod diff;
 mod event;
 mod milestone;
 mod process;
@@ -25,6 +26,7 @@ mod stage;
 mod system;
 mod timing;
 
+pub use diff::{BootDiff, DiffSide, MilestoneChange, StageChange, StepChange};
 pub use event::{Event, EventId, EventKind, LogLevel};
 pub use milestone::{Milestone, MilestoneKind};
 pub use process::{Process, ProcessId};
@@ -40,9 +42,14 @@ pub use timing::Confidence;
 ///
 /// A new minor version only adds things (optional fields, enum values), so a consumer
 /// written for `X.Y` can read any `X.Z`. A new major version may break consumers.
-pub const SCHEMA_VERSION: &str = "0.2";
+pub const SCHEMA_VERSION: &str = "0.3";
 
 /// Returns the JSON Schema describing a serialized [`BootRecord`].
 pub fn json_schema() -> schemars::Schema {
     schemars::schema_for!(BootRecord)
+}
+
+/// Returns the JSON Schema describing a serialized [`BootDiff`].
+pub fn diff_json_schema() -> schemars::Schema {
+    schemars::schema_for!(BootDiff)
 }

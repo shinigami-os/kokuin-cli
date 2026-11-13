@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BootDiff",
+  "description": "The comparison of two boots, A (before) and B (after): `kokuin-cli diff A B`.\n\nEvery change is \"B minus A\": a positive `delta_ns` means later, or longer, in B.",
+  "type": "object",
+  "properties": {
+    "a": {
+      "description": "The first boot.",
+      "$ref": "#/$defs/DiffSide"
+    },
+    "b": {
+      "description": "The second boot.",
+      "$ref": "#/$defs/DiffSide"
+    },
+    "gone_programs": {
+      "description": "Programs run in A but not in B, sorted.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "milestones": {
+      "description": "Each milestone of either boot, in boot order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MilestoneChange"
+      }
+    },
+    "new_programs": {
+      "description": "Programs run in B but not in A, sorted.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_version": {
+      "description": "Version of the format, as for [`crate::BootRecord`].",
+      "type": "string"
+    },
+    "stages": {
+      "description": "Each stage of either boot, in boot order, with its duration.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StageChange"
+      }
+    },
+    "steps": {
+      "description": "Timed steps (services, kernel init functions...) whose duration changed by\nat least 10 ms, or that took at least 10 ms in only one of the boots. Sorted\nby the size of the change, largest first.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StepChange"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "a",
+    "b",
+    "milestones",
+    "stages",
+    "steps",
+    "new_programs",
+    "gone_programs"
+  ],
+  "$defs": {
+    "CaptureMethod": {
+      "description": "How the data of a record was collected.",
+      "oneOf": [
+        {
+          "description": "Reconstructed after the boot from what the system still remembers (logs,\nfirmware tables, running processes). Processes that already exited are missing.",
+          "type": "string",
+          "const": "post_hoc"
+        },
+        {
+          "description": "Recorded live during the boot by `kokuin-init`.",
+          "type": "string",
+          "const": "recorder"
+        },
+        {
+          "description": "Recorded live with the extra kernel tracing of deep mode.",
+          "type": "string",
+          "const": "recorder_deep"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "DiffSide": {
+      "description": "Which boot one side of a comparison is.",
+      "type": "object",
+      "properties": {
+        "boot_id": {
+          "description": "The kernel's id of the boot.",
+          "type": "string"
+        },
+        "kernel_release": {
+          "description": "The kernel release.",
+          "type": "string"
+        },
+        "method": {
+          "description": "How it was recorded.",
+          "$ref": "#/$defs/CaptureMethod"
+        },
+        "started_at": {
+          "description": "When it started, if known.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "boot_id",
+        "kernel_release",
+        "method"
+      ]
+    },
+    "MilestoneChange": {
+      "description": "A milestone in both boots.",
+      "type": "object",
+      "properties": {
+        "a_ns": {
+          "description": "When it happened in A, if it did.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "b_ns": {
+          "description": "When it happened in B, if it did.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "delta_ns": {
+          "description": "`b_ns - a_ns`, when both are known.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "kind": {
+          "description": "Which milestone.",
+          "$ref": "#/$defs/MilestoneKind"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "MilestoneKind": {
+      "description": "A key moment of the boot, in boot order. Each kind appears at most once in a\nrecord.",
+      "oneOf": [
+        {
+          "description": "The firmware starts running, right after the CPU leaves reset (FPDT `ResetEnd`).",
+          "type": "string",
+          "const": "firmware_start"
+        },
+        {
+          "description": "The firmware starts loading the bootloader image (FPDT `OsLoaderLoadImageStart`).",
+          "type": "string",
+          "const": "bootloader_load"
+        },
+        {
+          "description": "The firmware starts executing the bootloader (FPDT `OsLoaderStartImageStart`).",
+          "type": "string",
+          "const": "bootloader_start"
+        },
+        {
+          "description": "The firmware hands the machine over to the OS (end of UEFI `ExitBootServices`).",
+          "type": "string",
+          "const": "exit_boot_services"
+        },
+        {
+          "description": "The Linux kernel starts. Always at `0` on the boot clock.",
+          "type": "string",
+          "const": "kernel_start"
+        },
+        {
+          "description": "The kernel runs the initramfs `/init`.",
+          "type": "string",
+          "const": "initramfs_start"
+        },
+        {
+          "description": "The real root filesystem is mounted.",
+          "type": "string",
+          "const": "root_mounted"
+        },
+        {
+          "description": "The init system of the real root filesystem starts as PID 1.",
+          "type": "string",
+          "const": "init_start"
+        },
+        {
+          "description": "The init system starts launching services.",
+          "type": "string",
+          "const": "services_start"
+        },
+        {
+          "description": "A graphics driver is ready to display something (DRM/KMS driver initialized).",
+          "type": "string",
+          "const": "graphics_ready"
+        },
+        {
+          "description": "The display manager (login screen) starts.",
+          "type": "string",
+          "const": "display_manager_start"
+        },
+        {
+          "description": "The user session starts (login done, or automatic login).",
+          "type": "string",
+          "const": "session_start"
+        },
+        {
+          "description": "The compositor (or X server) of the user session starts.",
+          "type": "string",
+          "const": "compositor_start"
+        },
+        {
+          "description": "The desktop is usable: the session is up and the system has settled.",
+          "type": "string",
+          "const": "session_ready"
+        },
+        {
+          "description": "The recording stopped.",
+          "type": "string",
+          "const": "recording_end"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "Stage": {
+      "description": "A phase of the boot, in the order in which phases start.\n\nPhases can overlap: services keep starting while the graphical session comes up,\nand the kernel keeps logging after it started the init system.",
+      "oneOf": [
+        {
+          "description": "From power-on to the firmware starting the bootloader (UEFI or BIOS).",
+          "type": "string",
+          "const": "firmware"
+        },
+        {
+          "description": "The bootloader (GRUB, systemd-boot...) choosing and loading the kernel.",
+          "type": "string",
+          "const": "bootloader"
+        },
+        {
+          "description": "The kernel initializing the hardware and itself, until it runs the first process.",
+          "type": "string",
+          "const": "kernel"
+        },
+        {
+          "description": "The early userspace from the initramfs, until it switches to the real root\nfilesystem. Absent when the system boots without an initramfs.",
+          "type": "string",
+          "const": "initramfs"
+        },
+        {
+          "description": "The init system (PID 1) setting up the base system: mounts, devices, hostname...",
+          "type": "string",
+          "const": "init"
+        },
+        {
+          "description": "Services being started by the init system or its service supervisor.",
+          "type": "string",
+          "const": "services"
+        },
+        {
+          "description": "Display stack coming up: graphics driver, display manager or compositor.",
+          "type": "string",
+          "const": "graphical"
+        },
+        {
+          "description": "The user session starting, until the desktop is ready and the system settled.",
+          "type": "string",
+          "const": "session"
+        },
+        {
+          "description": "Everything after the session is ready.",
+          "type": "string",
+          "const": "runtime"
+        },
+        {
+          "description": "A value from a newer schema version. Never produced by this version.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "StageChange": {
+      "description": "A stage in both boots.",
+      "type": "object",
+      "properties": {
+        "a_ns": {
+          "description": "Its duration in A, if measured.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "b_ns": {
+          "description": "Its duration in B, if measured.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "delta_ns": {
+          "description": "`b_ns - a_ns`, when both are known.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "stage": {
+          "description": "Which stage.",
+          "$ref": "#/$defs/Stage"
+        }
+      },
+      "required": [
+        "stage"
+      ]
+    },
+    "StepChange": {
+      "description": "A timed step, matched between the two boots.",
+      "type": "object",
+      "properties": {
+        "a_ns": {
+          "description": "Its duration in A, if it ran.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "b_ns": {
+          "description": "Its duration in B, if it ran.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "delta_ns": {
+          "description": "`b_ns - a_ns`, counting a missing side as 0.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "key": {
+          "description": "What matches the step between boots: `service:<name>`, `initcall:<function>`,\nor `<source>:<title>`.",
+          "type": "string"
+        },
+        "title": {
+          "description": "A title for it (from B if it is there, else from A).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "delta_ns"
+      ]
+    }
+  }
+}

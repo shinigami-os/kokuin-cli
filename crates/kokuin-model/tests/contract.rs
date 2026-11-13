@@ -1,5 +1,6 @@
 //! Keeps the published contract files in sync with the Rust types:
-//! - `schema/boot-record.schema.json`, the JSON Schema consumers validate against;
+//! - `schema/boot-record.schema.json` and `schema/boot-diff.schema.json`, the JSON
+//!   Schemas consumers validate against;
 //! - `docs/examples/boot-record.example.json`, the example record of `docs/format.md`.
 //!
 //! After changing the model, regenerate the schema with:
@@ -16,22 +17,34 @@ fn repo_file(relative: &str) -> PathBuf {
 }
 
 #[test]
-fn committed_schema_is_up_to_date() {
-    let path = repo_file("schema/boot-record.schema.json");
-    let generated = serde_json::to_string_pretty(&kokuin_model::json_schema()).unwrap() + "\n";
+fn committed_schemas_are_up_to_date() {
+    let schemas = [
+        (
+            "schema/boot-record.schema.json",
+            kokuin_model::json_schema(),
+        ),
+        (
+            "schema/boot-diff.schema.json",
+            kokuin_model::diff_json_schema(),
+        ),
+    ];
+    for (file, schema) in schemas {
+        let path = repo_file(file);
+        let generated = serde_json::to_string_pretty(&schema).unwrap() + "\n";
 
-    if std::env::var_os("KOKUIN_UPDATE_SCHEMA").is_some() {
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(&path, generated).unwrap();
-        return;
+        if std::env::var_os("KOKUIN_UPDATE_SCHEMA").is_some() {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, generated).unwrap();
+            continue;
+        }
+
+        let committed = fs::read_to_string(&path).unwrap_or_default();
+        assert!(
+            committed == generated,
+            "{} is out of date, regenerate it with `KOKUIN_UPDATE_SCHEMA=1 cargo test -p kokuin-model`",
+            path.display()
+        );
     }
-
-    let committed = fs::read_to_string(&path).unwrap_or_default();
-    assert!(
-        committed == generated,
-        "{} is out of date, regenerate it with `KOKUIN_UPDATE_SCHEMA=1 cargo test -p kokuin-model`",
-        path.display()
-    );
 }
 
 #[test]

@@ -56,6 +56,7 @@ enum Command {
         /// Boot to read: `last`, `-2`, a boot id (see `list`), a record file (`-`
         /// for standard input), or a folder saved by `capture --raw`. Default: the
         /// current boot.
+        #[arg(allow_hyphen_values = true)]
         boot: Option<String>,
         /// Print the whole record as JSON instead of the summary.
         #[arg(long)]
@@ -66,6 +67,7 @@ enum Command {
         /// Boot to read: `last`, `-2`, a boot id (see `list`), a record file (`-`
         /// for standard input), or a folder saved by `capture --raw`. Default: the
         /// current boot.
+        #[arg(allow_hyphen_values = true)]
         boot: Option<String>,
         /// Only these stages (repeatable).
         #[arg(long, value_parser = parse_enum::<Stage>)]

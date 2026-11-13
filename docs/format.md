@@ -24,6 +24,7 @@ milestones relate, and the identifiers that have a fixed meaning.
 | `kokuin-cli timeline [BOOT] --json [filters]` | Only the `events` array, filtered (`--stage`, `--source`, `--kind`, `--grep`). |
 | `kokuin-cli diff [A] [B] --json` | The comparison of two boots (default: `-2` and `last`; same forms as `BOOT`), described by `schema/boot-diff.schema.json`: both boots, then each milestone, stage and timed step with its time or duration in A and B and the change (`delta_ns`, B minus A), and the programs run in only one of them. Steps are matched by `service:<name>`, `initcall:<function>`, or else `<source>:<title>`. |
 | `kokuin-cli explain <explain_id> --json` | One knowledge base article: `id`, `title`, `summary`, `related`, `references`, Markdown `body`. Without an id: the list of articles. |
+| `kokuin-cli tui [BOOT]` | Not JSON: the same records, to move around in the terminal. |
 | `kokuin-cli status --json` | What can be read on this system, with the reason for each missing source and the kernel options it needs, and the state of the boot recorder (`recorder`: `installed`, `enabled`, `deep_armed`, `current_boot`, `boots_recorded`). |
 | `kokuin-cli schema [record\|diff]` | The JSON Schema of records (default) or of `diff --json`. |
 

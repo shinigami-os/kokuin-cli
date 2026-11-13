@@ -24,6 +24,18 @@ sudo kokuin-cli capture -o boot.json   # save the record as JSON; `kokuin-cli sh
 sudo kokuin-cli capture --raw boot/    # also save the raw data; `kokuin-cli show boot/` rebuilds the record
 ```
 
+To move around a boot rather than read it, open it in the terminal interface:
+
+```sh
+kokuin-cli tui              # the current boot; also `kokuin-cli tui last`, a record file or a raw folder
+```
+
+It shows the boot chain, the stages on one time axis, every event, and next to the
+selected event its details and why it happens. `←`/`→` shows one stage, `/`
+searches, `x` hides the raw kernel lines nothing explains, `[`/`]` jump between
+milestones, `Enter` opens the explanation, `b` picks another recorded boot, `?`
+lists the keys.
+
 To see everything, including the processes that already exited, record the boots
 while they happen:
 

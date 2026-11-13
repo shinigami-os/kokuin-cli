@@ -36,6 +36,15 @@ pub enum Line {
         /// Missing when the recorder was not started by kokuin-init.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         handover_ns: Option<i64>,
+        /// Where the recorder was started.
+        #[serde(default)]
+        from: StartedFrom,
+    },
+    /// The initramfs switched to the real root filesystem, and the recorder,
+    /// started in the initramfs, followed.
+    RootSwitched {
+        /// Boot clock, in ns: when PID 1 started the init of the real root.
+        t_ns: i64,
     },
     /// A process that was already running when the recorder started.
     Running {
@@ -128,6 +137,17 @@ impl ProcessDetails {
             cgroup: info.cgroup.clone(),
         }
     }
+}
+
+/// Where the recorder was started.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StartedFrom {
+    /// By kokuin-init, on the real root filesystem.
+    #[default]
+    Init,
+    /// By a hook of the initramfs, before the real root filesystem is mounted.
+    Initramfs,
 }
 
 /// How the recorder watches processes.
@@ -229,6 +249,18 @@ impl Source for ProcEvents {
 /// The recorder starting and stopping, on the timeline.
 fn recording_observations(replay: &Replay) -> Vec<Observation> {
     let mut observations = Vec::new();
+    if let Some((t_ns, confidence)) = replay.root_switched {
+        observations.push(
+            Observation::new(
+                EventKind::Recording,
+                "The initramfs switched to the real root filesystem and started its init",
+                Some(t_ns),
+                confidence,
+            )
+            .explained_by("kernel.initramfs")
+            .marks(MilestoneKind::InitStart),
+        );
+    }
     if let Some(t_ns) = replay.handover_ns {
         observations.push(
             Observation::new(
@@ -249,7 +281,16 @@ fn recording_observations(replay: &Replay) -> Vec<Observation> {
         observations.push(
             Observation::new(
                 EventKind::Recording,
-                format!("kokuin's recorder started watching processes {how}"),
+                match replay.started_from {
+                    StartedFrom::Init => {
+                        format!("kokuin's recorder started watching processes {how}")
+                    }
+                    StartedFrom::Initramfs => {
+                        format!(
+                            "kokuin's recorder started watching processes from the initramfs, {how}"
+                        )
+                    }
+                },
                 Some(t_ns),
                 Confidence::Exact,
             )
@@ -289,6 +330,10 @@ pub struct Replay {
     pub started: Option<(i64, WatchMethod)>,
     /// When kokuin-init handed over to the real init.
     pub handover_ns: Option<i64>,
+    /// Where the recorder was started.
+    pub started_from: StartedFrom,
+    /// When the initramfs switched to the real root, and how sure that time is.
+    pub root_switched: Option<(i64, Confidence)>,
     /// Whether events were lost.
     pub lost: bool,
     /// When and why the recorder stopped.
@@ -309,8 +354,10 @@ pub fn replay(lines: &[Line]) -> Replay {
                 t_ns,
                 method,
                 handover_ns,
+                from,
             } => {
                 replay.started = Some((*t_ns, *method));
+                replay.started_from = *from;
                 replay.handover_ns = *handover_ns;
                 if *method == WatchMethod::Polling {
                     confidence = Confidence::Approximate;
@@ -383,6 +430,9 @@ pub fn replay(lines: &[Line]) -> Replay {
                 }
             }
             Line::Lost { .. } => replay.lost = true,
+            Line::RootSwitched { t_ns } => {
+                replay.root_switched = Some((*t_ns, confidence));
+            }
             Line::Stopped { t_ns, reason } => replay.stopped = Some((*t_ns, *reason)),
         }
     }
@@ -466,6 +516,38 @@ mod tests {
         assert_eq!(reused.comm, "");
         assert!(reused.cmdline.is_empty());
         assert_eq!(reused.exit_signal, Some(9));
+    }
+
+    #[test]
+    fn a_recording_from_the_initramfs_marks_the_switch_to_the_real_root() {
+        let lines: Vec<Line> = [
+            r#"{"event":"started","t_ns":900000000,"method":"proc_events","from":"initramfs"}"#,
+            r#"{"event":"root_switched","t_ns":2100000000}"#,
+            r#"{"event":"stopped","t_ns":20000000000,"reason":"session_ready"}"#,
+        ]
+        .iter()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+        let replay = replay(&lines);
+        assert_eq!(replay.started_from, StartedFrom::Initramfs);
+        let found = recording_observations(&replay);
+        let switch = found
+            .iter()
+            .find(|o| o.milestone == Some(MilestoneKind::InitStart))
+            .unwrap();
+        assert_eq!(switch.t_ns, Some(2_100_000_000));
+        assert_eq!(switch.confidence, Confidence::Exact);
+        assert!(found.iter().any(|o| o.title.contains("from the initramfs")));
+        // Lines written before `from` existed still read, as started by kokuin-init.
+        let old: Line =
+            serde_json::from_str(r#"{"event":"started","t_ns":1,"method":"polling"}"#).unwrap();
+        assert!(matches!(
+            old,
+            Line::Started {
+                from: StartedFrom::Init,
+                ..
+            }
+        ));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 +++
 title = "How kokuin records a boot"
 summary = "kokuin-init runs first, starts the recorder, then becomes the real init; the recorder watches every process and the kernel log until the desktop is ready."
-related = ["init.pid1", "init.proc_events", "kernel.kmsg", "kernel.cmdline", "init.procfs", "kernel.ftrace", "kernel.initcall"]
+related = ["init.pid1", "init.proc_events", "kernel.kmsg", "kernel.cmdline", "init.procfs", "kernel.ftrace", "kernel.initcall", "firmware.kokuin_probe"]
 +++
 
 After a boot, most of what happened is gone: processes that exited leave no trace,
@@ -73,6 +73,10 @@ At the end of that boot, the recorder saves the trace and removes these paramete
 the next boots are normal again. Logging every init function makes the boot a
 little slower, so its timings are a little longer than usual.
 `kokuin-cli deep --cancel` disarms a deep boot that has not happened yet.
+
+When kokuin's EFI probe is installed (`sudo kokuin-cli probe install`), `deep` arms
+it too, so the firmware and the bootloader of that boot are timed as well (see
+`firmware.kokuin_probe`).
 
 ## What it costs
 

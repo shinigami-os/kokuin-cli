@@ -1,7 +1,7 @@
 +++
 title = "UEFI"
 summary = "The modern PC firmware standard: a small operating system that boots your operating system."
-related = ["stage.firmware", "firmware.bios", "firmware.efivars", "firmware.exit_boot_services", "firmware.boot_entries"]
+related = ["stage.firmware", "firmware.bios", "firmware.efivars", "firmware.exit_boot_services", "firmware.boot_entries", "firmware.kokuin_probe"]
 
 [[references]]
 title = "UEFI specifications"

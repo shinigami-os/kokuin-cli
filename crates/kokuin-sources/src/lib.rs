@@ -16,6 +16,7 @@ pub mod clock;
 mod context;
 pub mod efivars;
 pub mod fpdt;
+pub mod ftrace;
 pub mod init;
 pub mod kconfig;
 pub mod kmsg;

@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use kokuin_model::{Confidence, EndReason, EventKind, MilestoneKind, SourceStatus};
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Observation, ProcessInfo, Source, SourceOutput, report};
+use crate::{Context, Observation, ProcessInfo, Source, SourceOutput, ftrace, report};
 
 /// Where the recorder publishes what it saw.
 pub const RECORDER_DIR: &str = "/run/kokuin/recorder";
@@ -183,7 +183,12 @@ impl Source for ProcEvents {
                 Err(_) => unreadable += 1,
             }
         }
-        let replay = replay(&lines);
+        let mut replay = replay(&lines);
+        // On a deep boot, the kernel's trace names the processes that exited before
+        // the recorder could read them.
+        if let Ok(trace) = ctx.read_text(ftrace::PATH) {
+            ftrace::name_processes(&mut replay.processes, &ftrace::parse_execs(&trace));
+        }
 
         let mut problems = Vec::new();
         if replay

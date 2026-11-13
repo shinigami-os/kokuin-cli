@@ -5,8 +5,18 @@ use kokuin_kb::Kb;
 use crate::item::Item;
 
 /// Applies the first matching rule to each kernel log message: title, kind,
-/// explanation, milestone, tag, duration, and the captured values as data.
-pub(crate) fn apply_kmsg_rules(items: &mut [Item], kb: &Kb) {
+/// explanation, milestone, tag, duration, and the captured values as data. Messages
+/// of hidden rules are dropped.
+pub(crate) fn apply_kmsg_rules(items: &mut Vec<Item>, kb: &Kb) {
+    items.retain(|item| {
+        item.source != "kmsg"
+            || !item
+                .obs
+                .message
+                .as_deref()
+                .and_then(|message| kb.match_kmsg(message))
+                .is_some_and(|found| found.rule.hidden)
+    });
     for item in items.iter_mut().filter(|item| item.source == "kmsg") {
         let Some(message) = item.obs.message.as_deref() else {
             continue;
@@ -29,7 +39,7 @@ pub(crate) fn apply_kmsg_rules(items: &mut [Item], kb: &Kb) {
             item.obs.milestone = rule.milestone;
         }
         item.tag = rule.tag;
-        if let Some(duration) = found.duration_ns() {
+        if let Some(duration) = found.duration_ns().filter(|&d| d > 0) {
             // The message is printed when the work ends.
             item.obs.dur_ns = Some(duration);
             item.obs.t_ns = item.obs.t_ns.map(|end| end - duration as i64);
@@ -76,6 +86,30 @@ mod tests {
             (items[1].obs.t_ns, items[1].obs.dur_ns),
             (Some(1_998_500_000), Some(1_500_000))
         );
+        assert_eq!(items[1].obs.title, "Kernel init function pci_init");
+        assert_eq!(items[1].obs.data["function"], "pci_init");
         assert_eq!(items[2].obs.title, "something unknown");
+    }
+
+    #[test]
+    fn initcalls_give_one_event_each_and_failures_show() {
+        let mut items = vec![
+            kmsg("calling  pci_init+0x0/0x40 @ 1", 1_000_000_000),
+            kmsg(
+                "initcall pci_init+0x0/0x40 returned 0 after 0 usecs",
+                1_000_000_000,
+            ),
+            kmsg(
+                "initcall broken_init+0x0/0x20 returned -19 after 30 usecs",
+                1_100_000_000,
+            ),
+        ];
+        apply_kmsg_rules(&mut items, Kb::embedded());
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].obs.dur_ns, None);
+        assert_eq!(
+            items[1].obs.title,
+            "Kernel init function broken_init failed (error -19)"
+        );
     }
 }

@@ -42,6 +42,9 @@ pub struct KmsgRule {
     /// report how long something took. The event then starts that long before the
     /// message.
     pub duration_us: Option<String>,
+    /// The message tells nothing another message does not: it gives no event (it
+    /// stays in the raw kernel log).
+    pub hidden: bool,
 }
 
 /// The result of a [`KmsgRule`] matching a message.
@@ -164,6 +167,8 @@ struct RawKmsgRule {
     milestone: Option<MilestoneKind>,
     tag: Option<KmsgTag>,
     duration_us: Option<String>,
+    #[serde(default)]
+    hidden: bool,
 }
 
 #[derive(Deserialize)]
@@ -199,6 +204,7 @@ pub(crate) fn parse_kmsg_rules(source: &str) -> Result<Vec<KmsgRule>, KbError> {
                 milestone: raw.milestone,
                 tag: raw.tag,
                 duration_us: raw.duration_us,
+                hidden: raw.hidden,
                 pattern,
             })
         })

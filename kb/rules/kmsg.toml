@@ -9,7 +9,10 @@
 #   milestone    Milestone marked by the first message matching this rule.
 #   tag          Fact used by the analysis: efi_info, initramfs_unpack, run_init,
 #                disk_mount, switch_root.
-#   duration_us  Named group holding a duration in microseconds.
+#   duration_us  Named group holding a duration in microseconds. The message is
+#                printed when the work ends: the event starts that long before it.
+#   hidden       true when the message tells nothing another one does not: it gives
+#                no event (it stays in the raw kernel log).
 
 # --- Kernel start ---------------------------------------------------------------
 
@@ -65,18 +68,26 @@ explain = "kernel.smp"
 
 # --- Initcalls (with the initcall_debug kernel parameter) ------------------------
 
+# The function is followed by its place in the kernel (`+0x0/0x40`), which changes
+# with each build: it is left out of the name.
 [[rule]]
-match = '^initcall (?P<function>\S+) returned (?P<ret>-?\d+) after (?P<usecs>\d+) usecs'
-title = "initcall {function} ({usecs} µs)"
+match = '^initcall (?P<function>[^+\s]+)\S* returned (?P<ret>-\d+) after (?P<usecs>\d+) usecs'
+title = "Kernel init function {function} failed (error {ret})"
 kind = "initcall"
 explain = "kernel.initcall"
 duration_us = "usecs"
 
 [[rule]]
-match = '^calling  (?P<function>\S+)'
-title = "initcall {function} starting"
+match = '^initcall (?P<function>[^+\s]+)\S* returned (?P<ret>\d+) after (?P<usecs>\d+) usecs'
+title = "Kernel init function {function}"
 kind = "initcall"
 explain = "kernel.initcall"
+duration_us = "usecs"
+
+# The `returned` line gives the start and the duration.
+[[rule]]
+match = '^calling  \S+'
+hidden = true
 
 # --- Devices ----------------------------------------------------------------------
 

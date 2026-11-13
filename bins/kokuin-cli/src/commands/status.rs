@@ -195,7 +195,7 @@ impl RecorderState {
             enabled: system
                 .grub
                 .is_some()
-                .then(|| kokuin_bootcfg::is_enabled(&system)),
+                .then(|| kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Recording)),
             current_boot: boots::current().map(|b| b.dir.display().to_string()),
             boots_recorded: boots::list().len(),
         }

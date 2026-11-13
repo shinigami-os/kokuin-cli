@@ -2,9 +2,9 @@
 //!
 //! The kernel command line comes from the bootloader's configuration. To record a
 //! boot, the kernel must start `kokuin-init` instead of the usual init: that is the
-//! `init=` parameter. [`plan_enable`] and [`plan_disable`] work out the change from
-//! the facts gathered by [`System::read`], without touching anything; [`apply`] does
-//! it.
+//! `init=` parameter. kokuin's parameters come in independent [`Section`]s.
+//! [`plan_enable`] and [`plan_disable`] work out the change from the facts gathered
+//! by [`System::read`], without touching anything; [`apply`] does it.
 //!
 //! Supported: GRUB. Elsewhere, [`manual_instructions`] tells how to do it by hand.
 
@@ -35,6 +35,39 @@ pub fn init_parameter(cmdline: &str) -> Option<&str> {
         .split_whitespace()
         .filter_map(|word| word.strip_prefix("init="))
         .next_back()
+}
+
+/// A set of kernel parameters kokuin adds, and removes, as a whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Section {
+    /// Record every boot (`kokuin-cli enable`).
+    Recording,
+    /// Record the next boot with kernel tracing (`kokuin-cli deep`).
+    Deep,
+}
+
+impl Section {
+    /// Every section.
+    pub const ALL: [Section; 2] = [Section::Recording, Section::Deep];
+
+    /// Its name in the bootloader configuration.
+    pub fn name(self) -> &'static str {
+        match self {
+            Section::Recording => "kokuin",
+            Section::Deep => "kokuin-deep",
+        }
+    }
+
+    /// Who adds and removes it, for whoever reads the configuration.
+    pub fn lifetime(self) -> &'static str {
+        match self {
+            Section::Recording => "added by `kokuin-cli enable`, removed by `kokuin-cli disable`",
+            Section::Deep => {
+                "added by `kokuin-cli deep` for one boot, removed after it or by \
+                 `kokuin-cli deep --cancel`"
+            }
+        }
+    }
 }
 
 /// What the system looks like, as far as the bootloader configuration goes.
@@ -89,21 +122,24 @@ pub enum PlanError {
     Unsupported,
 }
 
-/// The change that adds `parameters` to every normal boot entry.
-pub fn plan_enable(system: &System, parameters: &str) -> Result<Plan, PlanError> {
+/// The change that adds a section with `parameters` to every normal boot entry.
+pub fn plan_enable(system: &System, section: Section, parameters: &str) -> Result<Plan, PlanError> {
     let grub = system.grub.as_ref().ok_or(PlanError::Unsupported)?;
-    Ok(grub.plan_enable(parameters))
+    Ok(grub.plan_enable(section, parameters))
 }
 
-/// The change that removes what [`plan_enable`] added.
-pub fn plan_disable(system: &System) -> Result<Plan, PlanError> {
+/// The change that removes a section [`plan_enable`] added.
+pub fn plan_disable(system: &System, section: Section) -> Result<Plan, PlanError> {
     let grub = system.grub.as_ref().ok_or(PlanError::Unsupported)?;
-    Ok(grub.plan_disable())
+    Ok(grub.plan_disable(section))
 }
 
-/// Whether kokuin's parameters are in the bootloader configuration.
-pub fn is_enabled(system: &System) -> bool {
-    system.grub.as_ref().is_some_and(grub::Grub::is_enabled)
+/// Whether a section is in the bootloader configuration.
+pub fn is_enabled(system: &System, section: Section) -> bool {
+    system
+        .grub
+        .as_ref()
+        .is_some_and(|grub| grub.is_enabled(section))
 }
 
 /// Writes the files, then regenerates the bootloader configuration. The first time
@@ -216,7 +252,10 @@ mod tests {
     #[test]
     fn without_grub_it_is_done_by_hand() {
         let system = System::default();
-        assert_eq!(plan_enable(&system, "init=x"), Err(PlanError::Unsupported));
-        assert!(!is_enabled(&system));
+        assert_eq!(
+            plan_enable(&system, Section::Recording, "init=x"),
+            Err(PlanError::Unsupported)
+        );
+        assert!(!is_enabled(&system, Section::Recording));
     }
 }

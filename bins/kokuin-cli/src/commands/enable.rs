@@ -7,7 +7,7 @@
 use std::{fs, path::Path};
 
 use anstream::println;
-use kokuin_bootcfg::{KOKUIN_INIT, Plan, PlanError, System};
+use kokuin_bootcfg::{KOKUIN_INIT, Plan, PlanError, Section, System};
 use kokuin_sources::{
     Context,
     kconfig::{KernelConfig, OptionState},
@@ -36,7 +36,7 @@ pub fn enable(dry_run: bool) -> Result<(), Failure> {
     }
     warn_about_kernel_options();
 
-    let plan = match kokuin_bootcfg::plan_enable(&System::read(), &parameters) {
+    let plan = match kokuin_bootcfg::plan_enable(&System::read(), Section::Recording, &parameters) {
         Ok(plan) => plan,
         Err(PlanError::Unsupported) => {
             println!("kokuin cannot change this bootloader's configuration (it knows GRUB).");
@@ -63,7 +63,7 @@ pub fn enable(dry_run: bool) -> Result<(), Failure> {
 }
 
 pub fn disable(dry_run: bool) -> Result<(), Failure> {
-    let plan = match kokuin_bootcfg::plan_disable(&System::read()) {
+    let plan = match kokuin_bootcfg::plan_disable(&System::read(), Section::Recording) {
         Ok(plan) => plan,
         Err(PlanError::Unsupported) => {
             println!(

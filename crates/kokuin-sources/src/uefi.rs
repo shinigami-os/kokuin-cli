@@ -8,7 +8,7 @@ use crate::binary::Reader;
 pub(crate) fn utf16_until_nul(bytes: &[u8]) -> (String, usize) {
     let mut units = Vec::new();
     let mut consumed = 0;
-    for pair in bytes.chunks_exact(2) {
+    for pair in bytes.as_chunks::<2>().0 {
         consumed += 2;
         let unit = u16::from_le_bytes([pair[0], pair[1]]);
         if unit == 0 {

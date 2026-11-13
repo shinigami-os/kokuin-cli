@@ -144,7 +144,9 @@ fn boot_entry(vars: &Vars) -> Option<Observation> {
 fn boot_order(vars: &Vars) -> Option<Observation> {
     let value = vars.get("BootOrder", GLOBAL)?;
     let entries: Vec<String> = value
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| format!("Boot{:04X}", u16::from_le_bytes([pair[0], pair[1]])))
         .collect();
     let title = format!("Boot order: {}", entries.join(", "));

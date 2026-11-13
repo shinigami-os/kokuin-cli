@@ -67,13 +67,14 @@ impl KmsgClock {
             kmsg_ns: 0,
             offset_ns: 0,
         }];
-        if let (Some(settled), Some(first)) = (settled_kmsg_ns, samples.first()) {
-            if settled > 0 && settled < first.kmsg_ns {
-                points.push(ClockSample {
-                    kmsg_ns: settled,
-                    offset_ns: first.offset_ns,
-                });
-            }
+        if let (Some(settled), Some(first)) = (settled_kmsg_ns, samples.first())
+            && settled > 0
+            && settled < first.kmsg_ns
+        {
+            points.push(ClockSample {
+                kmsg_ns: settled,
+                offset_ns: first.offset_ns,
+            });
         }
         points.extend(samples);
         Self { points }

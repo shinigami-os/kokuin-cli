@@ -171,15 +171,15 @@ fn unescape(text: &str) -> String {
     let raw = text.as_bytes();
     let mut i = 0;
     while i < raw.len() {
-        if raw[i] == b'\\' && raw.get(i + 1) == Some(&b'x') {
-            if let Some(byte) = text
+        if raw[i] == b'\\'
+            && raw.get(i + 1) == Some(&b'x')
+            && let Some(byte) = text
                 .get(i + 2..i + 4)
                 .and_then(|hex| u8::from_str_radix(hex, 16).ok())
-            {
-                bytes.push(byte);
-                i += 4;
-                continue;
-            }
+        {
+            bytes.push(byte);
+            i += 4;
+            continue;
         }
         bytes.push(raw[i]);
         i += 1;

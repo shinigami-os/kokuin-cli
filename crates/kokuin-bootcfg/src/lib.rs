@@ -172,10 +172,10 @@ pub fn apply(plan: &Plan) -> io::Result<()> {
     for edit in &plan.edits {
         // The backup keeps the file as it was before kokuin ever changed it.
         let backup = PathBuf::from(format!("{}.kokuin-backup", edit.path.display()));
-        if let (Some(before), Some(_)) = (&edit.before, &edit.after) {
-            if !backup.exists() {
-                fs::write(&backup, before)?;
-            }
+        if let (Some(before), Some(_)) = (&edit.before, &edit.after)
+            && !backup.exists()
+        {
+            fs::write(&backup, before)?;
         }
         match &edit.after {
             Some(after) => {

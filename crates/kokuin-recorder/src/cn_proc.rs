@@ -120,13 +120,12 @@ pub fn decode(datagram: &[u8]) -> Vec<Event> {
         let Some(message) = datagram.get(offset..offset + len) else {
             break;
         };
-        if !matches!(kind, NLMSG_NOOP | NLMSG_ERROR) {
-            if let Some(event) = message
+        if !matches!(kind, NLMSG_NOOP | NLMSG_ERROR)
+            && let Some(event) = message
                 .get(NLMSG_HEADER_LEN + CN_MSG_LEN..)
                 .and_then(decode_event)
-            {
-                events.push(event);
-            }
+        {
+            events.push(event);
         }
         // Messages are aligned on 4 bytes.
         offset += (len + 3) & !3;

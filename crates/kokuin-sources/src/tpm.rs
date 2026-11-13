@@ -568,7 +568,9 @@ fn describe_variable(event: &TpmEvent) -> (String, Option<String>, &'static str)
         }
         _ if name == "BootOrder" => {
             let entries: Vec<String> = value
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|pair| format!("Boot{:04X}", u16::from_le_bytes([pair[0], pair[1]])))
                 .collect();
             format!("Firmware measured the boot order: {}", entries.join(", "))

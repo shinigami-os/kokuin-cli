@@ -58,10 +58,8 @@ impl KmsgFollower {
                         let record = &buffer[..n];
                         let mut state = shared.lock().unwrap_or_else(PoisonError::into_inner);
                         state.records.extend_from_slice(record);
-                        if caught_up {
-                            if let Some(sample) = sample(record, read_at) {
-                                keep_best(&mut state.samples, sample);
-                            }
+                        if caught_up && let Some(sample) = sample(record, read_at) {
+                            keep_best(&mut state.samples, sample);
                         }
                     }
                     Err(Errno::AGAIN) => {

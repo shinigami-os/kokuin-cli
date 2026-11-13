@@ -8,7 +8,9 @@
 use std::{fs, path::Path};
 
 use anstream::println;
-use kokuin_bootcfg::{KOKUIN_INIT, Plan, PlanError, Section, System, efi::Firmware};
+use kokuin_bootcfg::{
+    KOKUIN_INIT, Plan, PlanError, Section, System, efi::Firmware, initramfs::Initramfs,
+};
 use kokuin_sources::{
     Context,
     kconfig::{KernelConfig, OptionState},
@@ -43,8 +45,17 @@ pub fn enable(dry_run: bool) -> Result<(), Failure> {
     let parameters = kokuin_bootcfg::parameters(current_init().as_deref());
     RECORDER_OPTIONS.warn_if_missing();
     let plan = kokuin_bootcfg::plan_enable(&System::read(), Section::Recording, &parameters);
+    let initramfs = Initramfs::read();
+    if initramfs.is_none() {
+        println!(
+            "{} kokuin knows no initramfs generator here (dracut, mkinitcpio, initramfs-tools): \
+             recording starts with kokuin-init, after the switch to the real root.\n",
+            paint(style::WARNING, "Note:")
+        );
+    }
     change(
         plan,
+        initramfs.map(|initramfs| initramfs.plan_enable()),
         dry_run,
         &parameters,
         &Messages {
@@ -60,6 +71,7 @@ pub fn disable(dry_run: bool) -> Result<(), Failure> {
     let plan = kokuin_bootcfg::plan_disable(&System::read(), &Section::ALL);
     change(
         plan,
+        Initramfs::read().map(|initramfs| initramfs.plan_disable()),
         dry_run,
         &format!("init={KOKUIN_INIT}"),
         &Messages {
@@ -78,6 +90,7 @@ pub fn deep(dry_run: bool, cancel: bool) -> Result<(), Failure> {
         let plan = kokuin_bootcfg::plan_disable(&System::read(), &[Section::Deep]);
         change(
             plan,
+            None,
             dry_run,
             kokuin_bootcfg::DEEP_TRACING,
             &Messages {
@@ -94,6 +107,7 @@ pub fn deep(dry_run: bool, cancel: bool) -> Result<(), Failure> {
     let plan = kokuin_bootcfg::plan_enable(&System::read(), Section::Deep, &parameters);
     change(
         plan,
+        None,
         dry_run,
         &parameters,
         &Messages {
@@ -128,24 +142,37 @@ struct Messages<'a> {
 /// Shows a planned change, then makes it unless `dry_run`. When the bootloader is not
 /// supported, tells what to do by hand with `parameters`.
 fn change(
-    plan: Result<Plan, PlanError>,
+    bootloader: Result<Plan, PlanError>,
+    initramfs: Option<Plan>,
     dry_run: bool,
     parameters: &str,
     messages: &Messages,
 ) -> Result<(), Failure> {
-    let plan = match plan {
-        Ok(plan) => plan,
+    let mut plans = Vec::new();
+    // The initramfs first: its hook must be there when the bootloader asks for it.
+    plans.extend(initramfs);
+    let supported = match bootloader {
+        Ok(plan) => {
+            plans.push(plan);
+            true
+        }
         Err(PlanError::Unsupported) => {
             println!("kokuin cannot change this bootloader's configuration (it knows GRUB).");
             println!("{}", kokuin_bootcfg::manual_instructions(parameters));
-            return Ok(());
+            println!();
+            false
         }
     };
-    if plan.is_empty() {
-        println!("{}", messages.nothing_to_do);
+    plans.retain(|plan| !plan.is_empty());
+    if plans.is_empty() {
+        if supported {
+            println!("{}", messages.nothing_to_do);
+        }
         return Ok(());
     }
-    describe(&plan);
+    for plan in &plans {
+        describe(plan);
+    }
     if messages.needs_recorder {
         let missing: Vec<String> = [(KOKUIN_INIT, "kokuin-init"), (RECORDER, "the recorder")]
             .into_iter()
@@ -156,14 +183,13 @@ fn change(
             return Err(Failure(missing.join("; ")));
         }
     }
-    if !may_change(dry_run, "the bootloader configuration")? {
+    if !may_change(dry_run, "the boot configuration")? {
         return Ok(());
     }
-    kokuin_bootcfg::apply(&plan).map_err(|err| {
-        Failure(format!(
-            "the bootloader configuration was not updated: {err}"
-        ))
-    })?;
+    for plan in &plans {
+        kokuin_bootcfg::apply(plan)
+            .map_err(|err| Failure(format!("{} was not updated: {err}", plan.title)))?;
+    }
     println!("{}", messages.done);
     Ok(())
 }
@@ -189,15 +215,19 @@ fn current_init() -> Option<String> {
     kokuin_bootcfg::init_parameter(&cmdline).map(str::to_owned)
 }
 
+/// New files longer than this are named, not shown.
+const SHOWN_LINES: usize = 5;
+
 /// Shows the changes: files, lines added and removed, then the command run.
 fn describe(plan: &Plan) {
-    println!(
-        "{}",
-        paint(style::HEADING, format!("Bootloader: {}", plan.bootloader))
-    );
+    println!("{}", paint(style::HEADING, &plan.title));
     for edit in &plan.edits {
         let path = edit.path.display();
         match (&edit.before, &edit.after) {
+            // Short files are shown whole; kokuin's longer hook scripts by their size.
+            (None, Some(after)) if after.lines().count() > SHOWN_LINES => {
+                println!("  Create {path} ({} lines)", after.lines().count());
+            }
             (None, Some(after)) => {
                 println!("  Create {path}:");
                 print_lines(after.lines(), "+", style::GOOD);

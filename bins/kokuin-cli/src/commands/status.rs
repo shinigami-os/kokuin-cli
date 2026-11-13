@@ -88,6 +88,10 @@ pub fn run(json: bool) -> Result<(), Failure> {
                 "deep_armed": recorder.deep_armed,
                 "probe_entry": recorder.probe_entry,
                 "probe_armed": recorder.probe_armed,
+                "initramfs": recorder.initramfs.map(|(generator, hook_installed)| json!({
+                    "generator": generator,
+                    "hook_installed": hook_installed,
+                })),
                 "current_boot": recorder.current_boot,
                 "boots_recorded": recorder.boots_recorded,
             },
@@ -193,6 +197,8 @@ struct RecorderState {
     uefi: bool,
     /// Secure Boot is on (the unsigned probe cannot run).
     secure_boot: bool,
+    /// The initramfs generator kokuin knows here, and whether its hook is installed.
+    initramfs: Option<(&'static str, bool)>,
     /// Where the recording of this boot is, if it was recorded.
     current_boot: Option<String>,
     boots_recorded: usize,
@@ -215,6 +221,8 @@ impl RecorderState {
             probe_armed: firmware.is_armed(),
             uefi: firmware.is_uefi(),
             secure_boot: firmware.secure_boot(),
+            initramfs: kokuin_bootcfg::initramfs::Initramfs::read()
+                .map(|initramfs| (initramfs.generator.name(), initramfs.is_enabled())),
             current_boot: boots::current().map(|b| b.dir.display().to_string()),
             boots_recorded: boots::list().len(),
         }
@@ -255,6 +263,20 @@ impl RecorderState {
                 "  {} a deep boot is armed: the next boot is recorded with kernel tracing",
                 mark(true)
             );
+        }
+        match self.initramfs {
+            Some((generator, true)) => println!(
+                "  {} recording starts in the initramfs ({generator})",
+                mark(true)
+            ),
+            Some((generator, false)) => println!(
+                "  {} the initramfs hook ({generator}) is not installed: `sudo kokuin-cli enable` installs it",
+                paint(style::DIM, "·")
+            ),
+            None => println!(
+                "  {} recording starts after the initramfs: kokuin knows no initramfs generator here",
+                paint(style::DIM, "·")
+            ),
         }
         if self.uefi {
             match (self.probe_entry, self.probe_armed) {

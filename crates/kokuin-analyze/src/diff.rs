@@ -59,7 +59,7 @@ fn milestones(a: &BootRecord, b: &BootRecord) -> Vec<MilestoneChange> {
         .chain(&b.milestones)
         .map(|m| m.kind)
         .collect();
-    kinds
+    let mut changes: Vec<MilestoneChange> = kinds
         .into_iter()
         .map(|kind| {
             let (a_ns, b_ns) = (time(a, kind), time(b, kind));
@@ -70,7 +70,10 @@ fn milestones(a: &BootRecord, b: &BootRecord) -> Vec<MilestoneChange> {
                 delta_ns: delta(a_ns, b_ns),
             }
         })
-        .collect()
+        .collect();
+    // Stable: milestones at the same time keep their boot order.
+    changes.sort_by_key(|m| m.b_ns.or(m.a_ns));
+    changes
 }
 
 fn stages(a: &BootRecord, b: &BootRecord) -> Vec<StageChange> {

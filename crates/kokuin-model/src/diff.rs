@@ -14,7 +14,7 @@ pub struct BootDiff {
     pub a: DiffSide,
     /// The second boot.
     pub b: DiffSide,
-    /// Each milestone of either boot, in boot order.
+    /// Each milestone of either boot, in time order (of B, else of A).
     pub milestones: Vec<MilestoneChange>,
     /// Each stage of either boot, in boot order, with its duration.
     pub stages: Vec<StageChange>,

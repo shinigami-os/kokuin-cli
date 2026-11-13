@@ -20,7 +20,7 @@
       }
     },
     "milestones": {
-      "description": "Each milestone of either boot, in boot order.",
+      "description": "Each milestone of either boot, in time order (of B, else of A).",
       "type": "array",
       "items": {
         "$ref": "#/$defs/MilestoneChange"

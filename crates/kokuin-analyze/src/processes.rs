@@ -239,7 +239,7 @@ fn affinity(entries: &[ProcessEntry], index: usize) -> Affinity {
 
 /// Name to show: the command name, or the full program name when the kernel
 /// truncated it (15 characters), taken from the executable or the command line.
-fn display_name(process: &Process) -> Cow<'_, str> {
+pub(crate) fn display_name(process: &Process) -> Cow<'_, str> {
     if process.comm.is_empty() {
         // The recorder saw it, but it exited before its program could be read.
         return Cow::Owned(format!("unnamed process {}", process.pid));

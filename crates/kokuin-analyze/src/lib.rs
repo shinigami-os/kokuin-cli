@@ -11,6 +11,7 @@
 //! 5. identify the bootloader and complete the system description (`components`).
 
 mod components;
+mod diff;
 mod enrich;
 mod item;
 mod milestones;
@@ -24,6 +25,7 @@ use kokuin_model::{
 };
 use kokuin_sources::{Context, SourceOutput, system::SystemInfo};
 
+pub use crate::diff::{diff, step_key};
 use crate::item::{Affinity, Item};
 
 /// Everything collected for one boot.

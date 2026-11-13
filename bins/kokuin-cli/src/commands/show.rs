@@ -2,8 +2,8 @@
 
 use anstream::println;
 use kokuin_model::{
-    BootRecord, CaptureMethod, EndReason, Event, FirmwareKind, MilestoneKind as M, SourceStatus,
-    StageSpan,
+    BootRecord, CaptureMethod, EndReason, Event, EventKind, FirmwareKind, MilestoneKind as M,
+    SourceStatus, StageSpan,
 };
 
 use crate::{
@@ -266,24 +266,46 @@ fn milestones(record: &BootRecord) {
 fn slowest(record: &BootRecord) {
     println!();
     println!("{}", paint(style::HEADING, "Slowest steps"));
-    let mut timed: Vec<&Event> = record
-        .events
-        .iter()
-        .filter(|e| e.dur_ns.is_some_and(|d| d > 0))
-        .collect();
-    if timed.is_empty() {
+    let steps = slowest_of(record, |e| e.kind != EventKind::Initcall);
+    if steps.is_empty() {
         println!(
             "  {}",
             paint(style::DIM, "no step durations were measured in this record")
         );
-        return;
     }
+    print_steps(&steps, true);
+
+    // Recorded with `initcall_debug` (a deep boot): the kernel stage in detail.
+    let initcalls = slowest_of(record, |e| e.kind == EventKind::Initcall);
+    if !initcalls.is_empty() {
+        println!();
+        println!("{}", paint(style::HEADING, "Slowest kernel init functions"));
+        print_steps(&initcalls, false);
+    }
+}
+
+/// The longest events that pass `keep`, longest first.
+fn slowest_of(record: &BootRecord, keep: impl Fn(&Event) -> bool) -> Vec<&Event> {
+    let mut timed: Vec<&Event> = record
+        .events
+        .iter()
+        .filter(|e| e.dur_ns.is_some_and(|d| d > 0) && keep(e))
+        .collect();
     timed.sort_by_key(|e| std::cmp::Reverse(e.dur_ns));
-    for event in timed.into_iter().take(SLOWEST) {
+    timed.truncate(SLOWEST);
+    timed
+}
+
+fn print_steps(steps: &[&Event], with_stage: bool) {
+    for event in steps {
+        let stage = if with_stage {
+            format!("{:<10} ", output::stage(event.stage))
+        } else {
+            String::new()
+        };
         println!(
-            "  {:>9}  {:<10} {}",
+            "  {:>9}  {stage}{}",
             duration(event.dur_ns.unwrap_or_default()),
-            output::stage(event.stage),
             event.title
         );
     }

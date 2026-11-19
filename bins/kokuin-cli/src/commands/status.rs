@@ -88,6 +88,9 @@ pub fn run(json: bool) -> Result<(), Failure> {
                 "deep_armed": recorder.deep_armed,
                 "probe_entry": recorder.probe_entry,
                 "probe_armed": recorder.probe_armed,
+                "probe_available": recorder.probe_available,
+                "uefi": recorder.uefi,
+                "secure_boot": recorder.secure_boot,
                 "initramfs": recorder.initramfs.map(|(generator, hook_installed)| json!({
                     "generator": generator,
                     "hook_installed": hook_installed,
@@ -193,6 +196,8 @@ struct RecorderState {
     probe_entry: Option<u16>,
     /// The next boot goes through the EFI probe.
     probe_armed: bool,
+    /// The probe's file is on this system, ready to be installed.
+    probe_available: bool,
     /// The system booted through UEFI (the probe needs it).
     uefi: bool,
     /// Secure Boot is on (the unsigned probe cannot run).
@@ -219,6 +224,7 @@ impl RecorderState {
             deep_armed: kokuin_bootcfg::is_enabled(&system, kokuin_bootcfg::Section::Deep),
             probe_entry: firmware.probe_entry().map(|entry| entry.number),
             probe_armed: firmware.is_armed(),
+            probe_available: std::path::Path::new(kokuin_bootcfg::efi::PROBE_FILE).is_file(),
             uefi: firmware.is_uefi(),
             secure_boot: firmware.secure_boot(),
             initramfs: kokuin_bootcfg::initramfs::Initramfs::read()

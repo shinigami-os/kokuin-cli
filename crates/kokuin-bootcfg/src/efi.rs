@@ -362,9 +362,14 @@ impl Firmware {
             .and_then(|v| v.trim().parse::<u64>().ok())
             .unwrap_or(512)
             .max(512);
-        let guid = self.partition_guid(&name).ok_or_else(|| {
-            format!("the GPT partition GUID of {device} is unknown (no /dev/disk/by-partuuid)")
-        })?;
+        let guid = self
+            .partition_guid(&name)
+            .or_else(|| self.gpt_guid(&block, partition, block_size))
+            .ok_or_else(|| {
+                format!(
+                    "the GPT partition GUID of {device} is unknown (no /dev/disk/by-partuuid, and the GPT could not be read)"
+                )
+            })?;
         Ok(Esp {
             mount: self.path(&mount),
             node: efi::hard_drive_node(
@@ -374,6 +379,28 @@ impl Firmware {
                 guid,
             ),
         })
+    }
+
+    /// The GPT partition GUID read from the disk's own partition table, for systems whose udev makes no
+    /// `/dev/disk/by-partuuid` (Kira's eudev has no blkid builtin). Needs read access to the disk (root).
+    fn gpt_guid(&self, block: &std::path::Path, partition: u64, block_size: u64) -> Option<[u8; 16]> {
+        use std::io::{Read, Seek, SeekFrom};
+        let disk = fs::canonicalize(block).ok()?.parent()?.file_name()?.to_str()?.to_owned();
+        let mut file = fs::File::open(self.path(&format!("/dev/{disk}"))).ok()?;
+        let mut header = [0u8; 92];
+        file.seek(SeekFrom::Start(block_size)).ok()?;
+        file.read_exact(&mut header).ok()?;
+        if &header[..8] != b"EFI PART" || partition == 0 {
+            return None;
+        }
+        let entries = u64::from_le_bytes(header[72..80].try_into().ok()?);
+        let entry_size = u64::from(u32::from_le_bytes(header[84..88].try_into().ok()?));
+        let mut entry = [0u8; 32];
+        file.seek(SeekFrom::Start(entries * block_size + (partition - 1) * entry_size)).ok()?;
+        file.read_exact(&mut entry).ok()?;
+        // the partition's unique GUID, in the mixed-endian form the device path wants as it is
+        let guid: [u8; 16] = entry[16..32].try_into().ok()?;
+        (guid != [0; 16]).then_some(guid)
     }
 
     /// The GPT partition GUID of a partition, from udev's `/dev/disk/by-partuuid`.
@@ -452,6 +479,24 @@ mod tests {
         fs::create_dir_all(at("/usr/lib/kokuin")).unwrap();
         fs::write(at(PROBE_FILE), "MZ probe").unwrap();
         (Firmware::under(&root), root)
+    }
+
+    #[test]
+    fn reads_the_partition_guid_from_the_gpt_when_udev_makes_no_link() {
+        let (firmware, root) = system("gpt", false);
+        fs::remove_dir_all(root.join("dev/disk")).unwrap();
+        let mut disk = vec![0u8; 512 * 4];
+        disk[512..520].copy_from_slice(b"EFI PART");
+        disk[512 + 72..512 + 80].copy_from_slice(&2u64.to_le_bytes());
+        disk[512 + 84..512 + 88].copy_from_slice(&128u32.to_le_bytes());
+        disk[1024 + 16..1024 + 32].copy_from_slice(&efi::guid_bytes(ESP_GUID).unwrap());
+        fs::write(root.join("dev/vda"), disk).unwrap();
+        let install = firmware.plan_install().unwrap();
+        let Action::WriteEntry { option, .. } = &install[1] else {
+            panic!("an entry is written");
+        };
+        let path = efi::parse_device_path(&option.device_path);
+        assert_eq!(path.partition.as_deref(), Some(ESP_GUID));
     }
 
     #[test]
